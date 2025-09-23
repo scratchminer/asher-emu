@@ -87,7 +87,8 @@ uint64_t asher_peripheral_dvt1_gpio_read(uc_engine *uc, uint64_t offset, unsigne
 		case 0x24:
 			return gpio->afrh;
 		case 0x10:
-			// input data register
+			// IDR
+			printf("[debug] GPIO%c read\n", gpio->id);
 		default:
 			return 0x00000000;
 	}

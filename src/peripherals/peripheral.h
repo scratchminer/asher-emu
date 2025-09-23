@@ -22,7 +22,7 @@ ASHER_DEFINE_PERIPHERAL(dvt1_sysctl);
 
 #undef ASHER_DEFINE_PERIPHERAL
 
-void asher_peripheral_dvt1_sysctl_nvic_set_pending(asher_peripheral *periph, uint8_t interruptNum, bool pending);
-void asher_peripheral_h7d1_sysctl_nvic_set_pending(asher_peripheral *periph, uint8_t interruptNum, bool pending);
+void asher_peripheral_dvt1_sysctl_nvic_set_pending(uc_engine *uc, asher_peripheral *periph, uint8_t exceptionNum, bool pending);
+void asher_peripheral_h7d1_sysctl_nvic_set_pending(uc_engine *uc, asher_peripheral *periph, uint8_t exceptionNum, bool pending);
 
 #endif

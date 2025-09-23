@@ -23,9 +23,7 @@ typedef struct {
 		uint32_t icsr;
 		uint32_t vtor;
 		uint32_t aircr;
-		uint32_t shpr1;
-		uint32_t shpr2;
-		uint32_t shpr3;
+		uint32_t shpr[4];
 		uint32_t shcsr;
 		uint32_t cfsr;
 		uint32_t hfsr;
@@ -33,6 +31,9 @@ typedef struct {
 		uint32_t bfar;
 		uint32_t csselr;
 		uint32_t cpacr;
+		uint32_t fpccr;
+		uint32_t fpcar;
+		uint32_t fpdscr;
 	} scb;
 	struct {
 		uint32_t iser[3];
@@ -84,15 +85,14 @@ void *asher_peripheral_dvt1_sysctl_create(uint32_t baseAddr) {
 	sysctl->scb.icsr = 0x00000000;
 	sysctl->scb.aircr = 0xfa050000;
 	sysctl->scb.vtor = 0x08000000;
-	sysctl->scb.shpr1 = 0x00000000;
-	sysctl->scb.shpr2 = 0x00000000;
-	sysctl->scb.shpr3 = 0x00000000;
 	sysctl->scb.shcsr = 0x00000000;
 	sysctl->scb.cfsr = 0x00000000;
 	sysctl->scb.hfsr = 0x00000000;
 	sysctl->scb.mmfar = 0x00000000;
 	sysctl->scb.bfar = 0x00000000;
 	sysctl->scb.csselr = 0x00000000;
+	sysctl->scb.fpdscr = 0x00000000;
+	memset(sysctl->scb.shpr, 0, 4 * sizeof(uint32_t));
 	
 	memset(sysctl->nvic.iser, 0, 3 * sizeof(uint32_t));
 	memset(sysctl->nvic.ispr, 0, 3 * sizeof(uint32_t));
@@ -157,19 +157,22 @@ uint64_t asher_peripheral_dvt1_sysctl_read(uc_engine *uc, uint64_t offset, unsig
 		switch (offset & 0xff) {
 			case 0x00:
 				return 0x411fc270;
-			case 0x04:
-				return sysctl->scb.icsr;
+			case 0x04: {
+				uint32_t ipsr;
+				uc_reg_read(uc, UC_ARM_REG_IPSR, &ipsr);
+				return sysctl->scb.icsr | (ipsr & 0x1ff);
+			}
 			case 0x08:
 				return sysctl->scb.vtor;
 			case 0x0c:
 				return sysctl->scb.aircr;
 			case 0x18:
-				return sysctl->scb.shpr1;
+				return sysctl->scb.shpr[1];
 			case 0x1c:
-				return sysctl->scb.shpr2;
+				return sysctl->scb.shpr[2];
 			case 0x20:
-				return sysctl->scb.shpr3;
-			case 0x24:
+				return sysctl->scb.shpr[3];
+			case 0x24: 
 				return sysctl->scb.shcsr;
 			case 0x28:
 				return sysctl->scb.cfsr;
@@ -232,6 +235,23 @@ uint64_t asher_peripheral_dvt1_sysctl_read(uc_engine *uc, uint64_t offset, unsig
 			case 0xb0:
 			case 0xb8:
 				return sysctl->mpu.rasr[sysctl->mpu.rnr];
+			default:
+				return 0x00000000;
+		}
+	}
+	else if (offset >= 0xf34 && offset < 0xf48) {
+		// SCB FPU
+		switch (offset & 0xff) {
+			case 0x34:
+				return sysctl->scb.fpccr;
+			case 0x38:
+				return sysctl->scb.fpcar;
+			case 0x3c:
+				return sysctl->scb.fpdscr;
+			case 0x40:
+				return 0x10110021;
+			case 0x44:
+				return 0x11000011;
 			default:
 				return 0x00000000;
 		}
@@ -317,7 +337,7 @@ void asher_peripheral_dvt1_sysctl_write(uc_engine *uc, uint64_t offset, unsigned
 			
 			for (uint8_t m = 0; m < 32; m++) {
 				if (((value >> m) & 0x00000001) == 0x00000001 && ((sysctl->nvic.ispr[n] >> m) & 0x00000001) == 0x00000000) {
-					asher_peripheral_dvt1_sysctl_nvic_set_pending(periph, (n << 5) | m, true);
+					asher_peripheral_dvt1_sysctl_nvic_set_pending(uc, periph, ((n + 1) << 5) | m, true);
 				}
 			}
 			return;
@@ -331,7 +351,7 @@ void asher_peripheral_dvt1_sysctl_write(uc_engine *uc, uint64_t offset, unsigned
 			
 			for (uint8_t m = 0; m < 32; m++) {
 				if (((value >> m) & 0x00000001) == 0x00000001 && ((sysctl->nvic.ispr[n] >> m) & 0x00000001) == 0x00000001) {
-					asher_peripheral_dvt1_sysctl_nvic_set_pending(periph, (n << 5) | m, false);
+					asher_peripheral_dvt1_sysctl_nvic_set_pending(uc, periph, ((n + 1) << 5) | m, false);
 				}
 			}
 			return;
@@ -351,7 +371,7 @@ void asher_peripheral_dvt1_sysctl_write(uc_engine *uc, uint64_t offset, unsigned
 		// SCB
 		switch (offset & 0xff) {
 			case 0x04:
-				sysctl->scb.icsr = value & 0xff000000;
+				sysctl->scb.icsr = value & 0x9e000000;
 				return;
 			case 0x08:
 				sysctl->scb.vtor = value & 0xffffff80;
@@ -361,22 +381,29 @@ void asher_peripheral_dvt1_sysctl_write(uc_engine *uc, uint64_t offset, unsigned
 					sysctl->scb.aircr = value & 0x00000700;
 					
 					if ((value & 0x00000004) == 0x00000004) {
+						uint32_t vectors[2];
+						uc_mem_read(uc, sysctl->scb.vtor, &vectors, 2 * sizeof(uint32_t));
 						
+						vectors[1] |= 0x00000001;
+						
+						uc_reg_write(uc, UC_ARM_REG_SP, &vectors[0]);
+						uc_reg_write(uc, UC_ARM_REG_PC, &vectors[1]);
+						return;
 					}
 				}
 				return;
 			}
 			case 0x18:
-				sysctl->scb.shpr1 = value;
+				sysctl->scb.shpr[1] = value;
 				return;
 			case 0x1c:
-				sysctl->scb.shpr2 = value;
+				sysctl->scb.shpr[2] = value;
 				return;
 			case 0x20:
-				sysctl->scb.shpr3 = value;
+				sysctl->scb.shpr[3] = value;
 				return;
 			case 0x24:
-				sysctl->scb.shcsr = value & 0x0007fd8b;
+				sysctl->scb.shcsr = (sysctl->scb.shcsr & 0x0000ffff) | (value & 0x00070000);
 				return;
 			case 0x28:
 				sysctl->scb.cfsr = value;
@@ -425,18 +452,339 @@ void asher_peripheral_dvt1_sysctl_write(uc_engine *uc, uint64_t offset, unsigned
 				return;
 		}
 	}
+	else if (offset >= 0xf34 && offset < 0xf48) {
+		// SCB FPU
+		switch (offset & 0xff) {
+			case 0x34:
+				sysctl->scb.fpccr = (sysctl->scb.fpccr & 0x30000000) | (value & 0xc0000000);
+			case 0x38:
+				sysctl->scb.fpcar = value & 0xfffffff8;
+			case 0x3c:
+				sysctl->scb.fpdscr = value & 0x07c00000;
+			default:
+				return;
+		}
+	}
+	else if (offset == 0xf00) {
+		// STIR
+		value &= 0x7f;
+		if (value > 98) {
+			value = 98;
+		}
+		
+		asher_peripheral_dvt1_sysctl_nvic_set_pending(uc, periph, value + 16, true);
+		return;
+	}
 }
 
 void asher_peripheral_dvt1_sysctl_destroy(void *userdata) {
 	free(userdata);
 }
 
-void asher_peripheral_dvt1_sysctl_nvic_set_pending(asher_peripheral *periph, uint8_t interruptNum, bool pending) {
+static void asher_peripheral_dvt1_sysctl_nvic_service(uc_engine *uc, asher_dvt1_sysctl *sysctl, int32_t currentPriority, uint8_t exceptionNum) {
+	uint32_t control;
+	uc_reg_read(uc, UC_ARM_REG_CONTROL, &control);
+	
+	uint32_t ipsr;
+	uc_reg_read(uc, UC_ARM_REG_IPSR, &ipsr);
+	
+	uint32_t frameSize = 0x20;
+	
+	if ((control & 0x4) != 0x0) {
+		frameSize = 0x68;
+	}
+	
+	uint32_t sp;
+	bool frameAlign;
+	
+	if ((control & 0x2) != 0x0 && (ipsr & 0x1ff) == 0x000) {
+		uc_reg_read(uc, UC_ARM_REG_PSP, &sp);
+		frameAlign = (sp & 0x00000004) != 0;
+		sp = (sp - frameSize) & 0xfffffff7;
+		uc_reg_write(uc, UC_ARM_REG_PSP, &sp);
+	}
+	else {
+		uc_reg_read(uc, UC_ARM_REG_MSP, &sp);
+		frameAlign = (sp & 0x00000004) != 0;
+		sp = (sp - frameSize) & 0xfffffff7;
+		uc_reg_write(uc, UC_ARM_REG_MSP, &sp);
+	}
+	
+	uint32_t frame[frameSize >> 2];
+	
+	uc_reg_read(uc, UC_ARM_REG_R0, &frame[0]);
+	uc_reg_read(uc, UC_ARM_REG_R1, &frame[1]);
+	uc_reg_read(uc, UC_ARM_REG_R2, &frame[2]);
+	uc_reg_read(uc, UC_ARM_REG_R3, &frame[3]);
+	uc_reg_read(uc, UC_ARM_REG_R12, &frame[4]);
+	uc_reg_read(uc, UC_ARM_REG_LR, &frame[5]);
+	uc_reg_read(uc, UC_ARM_REG_PC, &frame[6]);
+	uc_reg_read(uc, UC_ARM_REG_XPSR, &frame[7]);
+	
+	if (frameAlign) {
+		frame[7] |= 0x00000200;
+	}
+	
+	if ((control & 0x2) != 0x0) {
+		if ((sysctl->scb.fpccr & 0x40000000) == 0x00000000) {
+			uc_reg_read(uc, UC_ARM_REG_S0, &frame[8]);
+			uc_reg_read(uc, UC_ARM_REG_S1, &frame[9]);
+			uc_reg_read(uc, UC_ARM_REG_S2, &frame[10]);
+			uc_reg_read(uc, UC_ARM_REG_S3, &frame[11]);
+			uc_reg_read(uc, UC_ARM_REG_S4, &frame[12]);
+			uc_reg_read(uc, UC_ARM_REG_S5, &frame[13]);
+			uc_reg_read(uc, UC_ARM_REG_S6, &frame[14]);
+			uc_reg_read(uc, UC_ARM_REG_S7, &frame[15]);
+			uc_reg_read(uc, UC_ARM_REG_S8, &frame[16]);
+			uc_reg_read(uc, UC_ARM_REG_S9, &frame[17]);
+			uc_reg_read(uc, UC_ARM_REG_S10, &frame[18]);
+			uc_reg_read(uc, UC_ARM_REG_S11, &frame[19]);
+			uc_reg_read(uc, UC_ARM_REG_S12, &frame[20]);
+			uc_reg_read(uc, UC_ARM_REG_S13, &frame[21]);
+			uc_reg_read(uc, UC_ARM_REG_S14, &frame[22]);
+			uc_reg_read(uc, UC_ARM_REG_S15, &frame[23]);
+			uc_reg_read(uc, UC_ARM_REG_FPSCR, &frame[24]);
+		}
+		else {
+			sysctl->scb.fpcar = sp + 0x20;
+			sysctl->scb.fpccr |= 0x00000001;
+			sysctl->scb.fpccr |= ((control & 0x1) == 0x0 || (ipsr & 0x1ff) > 0x000) ? 0x00000000 : 0x00000002;
+			sysctl->scb.fpccr |= ((ipsr & 0x1ff) > 0x000) ? 0x00000000 : 0x00000008;
+			sysctl->scb.fpccr |= (currentPriority > -1) ? 0x00000010 : 0x00000000;
+			sysctl->scb.fpccr |= ((sysctl->scb.shcsr & 0x00020000) != 0x00000000 && currentPriority > ((sysctl->scb.shpr[1] >> 8) & 0xff)) ? 0x00000010 : 0x00000000;
+			sysctl->scb.fpccr |= ((sysctl->scb.shcsr & 0x00010000) != 0x00000000 && currentPriority > (sysctl->scb.shpr[1] & 0xff)) ? 0x00000020 : 0x00000000;
+		}
+	}
+	
+	uc_mem_write(uc, sp, frame, frameSize);
+	
+	uint32_t temp = 0xffffffe1;
+	temp |= ((ipsr & 0x1ff) == 0x000) ? 0x00000008 : 0x00000000;
+	temp |= ((control & 0x4) != 0x0) ? 0x00000000 : 0x00000010;
+	temp |= ((control & 0x2) != 0x0) ? 0x00000004 : 0x00000000;
+	uc_reg_write(uc, UC_ARM_REG_LR, &temp);
+	
+	control = (control & 0x1) | 0x4;
+	uc_reg_write(uc, UC_ARM_REG_CONTROL, &control);
+	
+	uint32_t vector = sysctl->scb.vtor + (exceptionNum << 2);
+	uc_mem_read(uc, vector, &temp, sizeof(uint32_t));
+	temp |= 0x00000001;
+	uc_reg_write(uc, UC_ARM_REG_PC, &temp);
+	
+	temp = frame[7];
+	temp = (temp & 0xffff0200) | exceptionNum;
+	uc_reg_write(uc, UC_ARM_REG_XPSR, &temp);
+	
+	// Tecnhically, this should set the interrupts to "active" in their associated registers but I don't think it's needed for the emulator
+	/*
+	if (exceptionNum >= 16) {
+		sysctl->nvic.iabr[(exceptionNum - 16) >> 5] |= 0x00000001 << (exceptionNum & 0x1f);
+	}
+	else if (exceptionNum == 4) {
+		sysctl->scb.shcsr |= 0x00000001;
+	}
+	else if (exceptionNum == 5) {
+		sysctl->scb.shcsr |= 0x00000002;
+	}
+	else if (exceptionNum == 6) {
+		sysctl->scb.shcsr |= 0x00000008;
+	}
+	else if (exceptionNum == 11) {
+		sysctl->scb.shcsr |= 0x00000080;
+	}
+	else if (exceptionNum == 14) {
+		sysctl->scb.shcsr |= 0x00000400;
+	}
+	else if (exceptionNum == 15) {
+		sysctl->scb.shcsr |= 0x00000800;
+	}*/
+}
+
+void asher_peripheral_dvt1_sysctl_nvic_set_pending(uc_engine *uc, asher_peripheral *periph, uint8_t exceptionNum, bool pending) {
 	asher_dvt1_sysctl *sysctl = (asher_dvt1_sysctl *)(periph->userdata);
 	
-	sysctl->nvic.ispr[interruptNum >> 5] |= 0x00000001 << (interruptNum & 0x1f);
+	if (exceptionNum >= 16 && exceptionNum < 114) {
+		if (pending) {
+			sysctl->nvic.ispr[(exceptionNum - 16) >> 5] |= 0x00000001 << (exceptionNum & 0x1f);
+		}
+		else {
+			sysctl->nvic.ispr[(exceptionNum - 16) >> 5] &= 0xffffffff ^ (0x00000001 << (exceptionNum & 0x1f));
+		}
+	}
+	else if (exceptionNum == 2) {
+		if (pending) {
+			sysctl->scb.icsr |= 0x80000000;
+		}
+		else {
+			sysctl->scb.icsr &= 0x7fffffff;
+		}
+	}
+	else if (exceptionNum == 4) {
+		if (pending) {
+			sysctl->scb.shcsr |= 0x00002000;
+		}
+		else {
+			sysctl->scb.shcsr &= 0xffffdfff;
+		}
+	}
+	else if (exceptionNum == 5) {
+		if (pending) {
+			sysctl->scb.shcsr |= 0x00004000;
+		}
+		else {
+			sysctl->scb.shcsr &= 0xffffbfff;
+		}
+	}
+	else if (exceptionNum == 6) {
+		if (pending) {
+			sysctl->scb.shcsr |= 0x00001000;
+		}
+		else {
+			sysctl->scb.shcsr &= 0xffffefff;
+		}
+	}
+	else if (exceptionNum == 11) {
+		if (pending) {
+			sysctl->scb.icsr |= 0x00008000;
+		}
+		else {
+			sysctl->scb.icsr &= 0xffff7fff;
+		}
+	}
+	else if (exceptionNum == 14) {
+		if (pending) {
+			sysctl->scb.icsr |= 0x10000000;
+		}
+		else {
+			sysctl->scb.icsr &= 0xefffffff;
+		}
+	}
+	else if (exceptionNum == 15) {
+		if (pending) {
+			sysctl->scb.icsr |= 0x04000000;
+		}
+		else {
+			sysctl->scb.icsr &= 0xfbffffff;
+		}
+	}
 	
-	for (uint8_t i = 0; i < 98; i++) {
+	bool escalateIfMasked = pending && ((exceptionNum >= 4 && exceptionNum < 7) || exceptionNum == 11);
+	
+	uint32_t primask;
+	uc_reg_read(uc, UC_ARM_REG_PRIMASK, &primask);
+	
+	uint32_t faultmask;
+	uc_reg_read(uc, UC_ARM_REG_FAULTMASK, &faultmask);
+	
+	uint32_t ipsr;
+	uc_reg_read(uc, UC_ARM_REG_IPSR, &ipsr);
+	
+	int32_t priority;
+	
+	if (ipsr >= 16) {
+		uint16_t currentExcNum = (ipsr - 16) & 0x1ff;
+		priority = (sysctl->nvic.ipr[currentExcNum >> 2] >> ((currentExcNum & 0x3) << 3)) & (0xff << ((sysctl->scb.aircr >> 8) & 0x7));
+	}
+	else if (ipsr > 0) {
+		priority = (sysctl->scb.shpr[(ipsr & 0x1ff) >> 2] >> ((ipsr & 0x003) << 3)) & (0xff << ((sysctl->scb.aircr >> 8) & 0x7));
+	}
+	
+	int32_t basepri;
+	uc_reg_read(uc, UC_ARM_REG_BASEPRI, &basepri);
+	
+	if (basepri == 0) {
+		basepri = 256;
+	}
+	else {
+		basepri &= (0xff << ((sysctl->scb.aircr >> 8) & 0x7));
+	}
+	
+	priority = (priority < basepri) ? priority : basepri;
+	
+	if (!primask && !faultmask) {
+		uint8_t newExceptionNum = 0;
+		int32_t maxPriority = priority;
 		
+		for (uint8_t i = 2; i < 114; i++) {
+			bool pending = false;
+			
+			if (i >= 16) {
+				pending = ((sysctl->nvic.ispr[(i - 16) >> 5] >> (i & 0x1f)) & 0x00000001) != 0x00000000;
+			}
+			else if (i == 2) {
+				pending = (sysctl->scb.icsr & 0x80000000) != 0x00000000;
+			}
+			else if (i == 4) {
+				pending = (sysctl->scb.shcsr & 0x00002000) != 0x00000000;
+			}
+			else if (i == 5) {
+				pending = (sysctl->scb.shcsr & 0x00004000) != 0x00000000;
+			}
+			else if (i == 6) {
+				pending = (sysctl->scb.shcsr & 0x00001000) != 0x00000000;
+			}
+			else if (i == 11) {
+				pending = (sysctl->scb.shcsr & 0x00008000) != 0x00000000;
+			}
+			else if (i == 14) {
+				pending = (sysctl->scb.icsr & 0x10000000) != 0x00000000;
+			}
+			else if (i == 15) {
+				pending = (sysctl->scb.icsr & 0x04000000) != 0x00000000;
+			}
+			else {
+				pending = i == exceptionNum;
+			}
+			
+			if (pending) {
+				int32_t newPriority;
+				
+				if (i >= 16) {
+					uint16_t currentExcNum = (i - 16) & 0xffff;
+					newPriority = (sysctl->nvic.ipr[currentExcNum >> 3] >> ((currentExcNum & 0x3) << 3)) & (0xff << ((sysctl->scb.aircr >> 8) & 0x7));
+				}
+				else {
+					newPriority = (sysctl->scb.shpr[i >> 2] >> (i << 3)) & (0xff << ((sysctl->scb.aircr >> 8) & 0x7));
+				}
+				
+				if (newPriority < maxPriority) {
+					newExceptionNum = i;
+					maxPriority = newPriority;
+				}
+			}
+		}
+		
+		if (newExceptionNum > 0) {
+			asher_peripheral_dvt1_sysctl_nvic_service(uc, sysctl, priority, newExceptionNum);
+			return;
+		}
+		else if (escalateIfMasked) {
+			bool enabled = false;
+			
+			if (exceptionNum == 4) {
+				enabled = (sysctl->scb.shcsr & 0x00010000) != 0x00000000;
+			}
+			else if (exceptionNum == 5) {
+				enabled = (sysctl->scb.shcsr & 0x00020000) != 0x00000000;
+			}
+			else if (exceptionNum == 6) {
+				enabled = (sysctl->scb.shcsr & 0x00040000) != 0x00000000;
+			}
+			
+			if (!enabled) {
+				sysctl->scb.hfsr |= 0x40000000;
+				asher_peripheral_dvt1_sysctl_nvic_service(uc, sysctl, priority, 3);
+				return;
+			}
+		}
+	}
+	else if (faultmask && exceptionNum == 2) {
+		asher_peripheral_dvt1_sysctl_nvic_service(uc, sysctl, priority, exceptionNum);
+		return;
+	}
+	else if (primask && exceptionNum < 4) {
+		asher_peripheral_dvt1_sysctl_nvic_service(uc, sysctl, priority, exceptionNum);
+		return;
 	}
 }
