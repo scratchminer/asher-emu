@@ -22,6 +22,7 @@ typedef struct {
 	struct {
 		uint32_t icsr;
 		uint32_t vtor;
+		uint32_t aircr;
 		uint32_t shpr1;
 		uint32_t shpr2;
 		uint32_t shpr3;
@@ -34,6 +35,9 @@ typedef struct {
 		uint32_t cpacr;
 	} scb;
 	struct {
+		uint32_t iser[3];
+		uint32_t ispr[3];
+		uint32_t iabr[3];
 		uint32_t ipr[25];
 	} nvic;
 	struct {
@@ -78,6 +82,7 @@ void *asher_peripheral_dvt1_sysctl_create(uint32_t baseAddr) {
 	sysctl->systick.csr = 0x00000000;
 	
 	sysctl->scb.icsr = 0x00000000;
+	sysctl->scb.aircr = 0xfa050000;
 	sysctl->scb.vtor = 0x08000000;
 	sysctl->scb.shpr1 = 0x00000000;
 	sysctl->scb.shpr2 = 0x00000000;
@@ -89,6 +94,9 @@ void *asher_peripheral_dvt1_sysctl_create(uint32_t baseAddr) {
 	sysctl->scb.bfar = 0x00000000;
 	sysctl->scb.csselr = 0x00000000;
 	
+	memset(sysctl->nvic.iser, 0, 3 * sizeof(uint32_t));
+	memset(sysctl->nvic.ispr, 0, 3 * sizeof(uint32_t));
+	memset(sysctl->nvic.iabr, 0, 3 * sizeof(uint32_t));
 	memset(sysctl->nvic.ipr, 0, 25 * sizeof(uint32_t));
 	
 	sysctl->mpu.ctrl = 0x00000000;
@@ -97,8 +105,8 @@ void *asher_peripheral_dvt1_sysctl_create(uint32_t baseAddr) {
 	return sysctl;
 }
 
-uint64_t asher_peripheral_dvt1_sysctl_read(uc_engine *uc, uint64_t offset, unsigned size, void *userdata) {
-	asher_dvt1_sysctl *sysctl = (asher_dvt1_sysctl *)userdata;
+uint64_t asher_peripheral_dvt1_sysctl_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph) {
+	asher_dvt1_sysctl *sysctl = (asher_dvt1_sysctl *)(((asher_peripheral *)periph)->userdata);
 	
 	if (offset == 0x004) {
 		return 0x00000003;
@@ -106,8 +114,11 @@ uint64_t asher_peripheral_dvt1_sysctl_read(uc_engine *uc, uint64_t offset, unsig
 	else if (offset >= 0x010 && offset < 0x020) {
 		// SysTick
 		switch (offset - 0x010) {
-			case 0x0:
-				return sysctl->systick.csr;
+			case 0x0: {
+				uint32_t temp = sysctl->systick.csr;
+				sysctl->systick.csr &= 0xfffeffff;
+				return temp;
+			}
 			case 0x4:
 				return sysctl->systick.rvr;
 			case 0x8:
@@ -118,9 +129,28 @@ uint64_t asher_peripheral_dvt1_sysctl_read(uc_engine *uc, uint64_t offset, unsig
 				return 0x00000000;
 		}
 	}
-	else if (offset >= 0x400 && offset < 0x464) {
+	else if (offset >= 0x100 && offset < 0x464) {
 		// NVIC
-		return sysctl->nvic.ipr[offset - 0x400];
+		if (offset >= 0x100 && offset < 0x10c) {
+			return sysctl->nvic.iser[(offset - 0x100) >> 2];
+		}
+		else if (offset >= 0x180 && offset < 0x18c) {
+			return sysctl->nvic.iser[(offset - 0x180) >> 2];
+		}
+		if (offset >= 0x200 && offset < 0x20c) {
+			return sysctl->nvic.ispr[(offset - 0x200) >> 2];
+		}
+		else if (offset >= 0x280 && offset < 0x28c) {
+			return sysctl->nvic.ispr[(offset - 0x280) >> 2];
+		}
+		else if (offset >= 0x300 && offset < 0x30c) {
+			return sysctl->nvic.iabr[(offset - 0x300) >> 2];
+		}
+		else if (offset >= 0x400) {
+			return sysctl->nvic.ipr[(offset - 0x400) >> 2];
+		}
+		
+		return 0x00000000;
 	}
 	else if (offset >= 0xd00 && offset < 0xd90) {
 		// SCB
@@ -132,7 +162,7 @@ uint64_t asher_peripheral_dvt1_sysctl_read(uc_engine *uc, uint64_t offset, unsig
 			case 0x08:
 				return sysctl->scb.vtor;
 			case 0x0c:
-				return 0xfa050000;
+				return sysctl->scb.aircr;
 			case 0x18:
 				return sysctl->scb.shpr1;
 			case 0x1c:
@@ -240,28 +270,82 @@ uint64_t asher_peripheral_dvt1_sysctl_read(uc_engine *uc, uint64_t offset, unsig
 	return 0x00000000;
 }
 
-void asher_peripheral_dvt1_sysctl_write(uc_engine *uc, uint64_t offset, unsigned size, uint64_t value, void *userdata) {
-	asher_dvt1_sysctl *sysctl = (asher_dvt1_sysctl *)userdata;
+void asher_peripheral_dvt1_sysctl_write(uc_engine *uc, uint64_t offset, unsigned size, uint64_t value, void *periph) {
+	asher_dvt1_sysctl *sysctl = (asher_dvt1_sysctl *)(((asher_peripheral *)periph)->userdata);
 	
 	if (offset >= 0x010 && offset < 0x020) {
 		// SysTick
 		switch (offset - 0x010) {
 			case 0x0:
-				sysctl->systick.csr = value;
+				sysctl->systick.csr = value & 0x00010007;
 				return;
 			case 0x4:
-				sysctl->systick.rvr = value;
+				sysctl->systick.rvr = value & 0x00ffffff;
 				return;
 			case 0x8:
-				sysctl->systick.cvr = value;
+				sysctl->systick.cvr = value & 0x00ffffff;
+				sysctl->systick.csr &= 0xfffeffff;
 				return;
 			default:
 				return;
 		}
 	}
-	else if (offset >= 0x400 && offset < 0x464) {
+	else if (offset >= 0x100 && offset < 0x464) {
 		// NVIC
-		sysctl->nvic.ipr[offset - 0x400] = value;
+		if (offset >= 0x100 && offset < 0x10c) {
+			if (offset == 0x10c) {
+				value &= 0x00000003;
+			}
+			
+			sysctl->nvic.iser[(offset - 0x100) >> 2] |= value;
+			return;
+		}
+		else if (offset >= 0x180 && offset < 0x18c) {
+			if (offset == 0x18c) {
+				value &= 0x00000003;
+			}
+			
+			sysctl->nvic.iser[(offset - 0x180) >> 2] &= 0xffffffff ^ value;
+			return;
+		}
+		if (offset >= 0x200 && offset < 0x20c) {
+			if (offset == 0x20c) {
+				value &= 0x00000003;
+			}
+			
+			uint16_t n = (offset - 0x200) >> 2;
+			
+			for (uint8_t m = 0; m < 32; m++) {
+				if (((value >> m) & 0x00000001) == 0x00000001 && ((sysctl->nvic.ispr[n] >> m) & 0x00000001) == 0x00000000) {
+					asher_peripheral_dvt1_sysctl_nvic_set_pending(periph, (n << 5) | m, true);
+				}
+			}
+			return;
+		}
+		else if (offset >= 0x280 && offset < 0x28c) {
+			if (offset == 0x20c) {
+				value &= 0x00000003;
+			}
+			
+			uint16_t n = (offset - 0x200) >> 2;
+			
+			for (uint8_t m = 0; m < 32; m++) {
+				if (((value >> m) & 0x00000001) == 0x00000001 && ((sysctl->nvic.ispr[n] >> m) & 0x00000001) == 0x00000001) {
+					asher_peripheral_dvt1_sysctl_nvic_set_pending(periph, (n << 5) | m, false);
+				}
+			}
+			return;
+		}
+		else if (offset >= 0x400) {
+			if (offset == 0x460) {
+				value &= 0x0000ffff;
+			}
+			
+			sysctl->nvic.ipr[(offset - 0x400) >> 2] = value;
+			return;
+		}
+		
+		return;
 	}
 	else if (offset >= 0xd00 && offset < 0xd90) {
 		// SCB
@@ -272,6 +356,16 @@ void asher_peripheral_dvt1_sysctl_write(uc_engine *uc, uint64_t offset, unsigned
 			case 0x08:
 				sysctl->scb.vtor = value & 0xffffff80;
 				return;
+			case 0x0c: {
+				if ((value & 0xffff0000) == 0x05fa0000) {
+					sysctl->scb.aircr = value & 0x00000700;
+					
+					if ((value & 0x00000004) == 0x00000004) {
+						
+					}
+				}
+				return;
+			}
 			case 0x18:
 				sysctl->scb.shpr1 = value;
 				return;
@@ -335,4 +429,14 @@ void asher_peripheral_dvt1_sysctl_write(uc_engine *uc, uint64_t offset, unsigned
 
 void asher_peripheral_dvt1_sysctl_destroy(void *userdata) {
 	free(userdata);
+}
+
+void asher_peripheral_dvt1_sysctl_nvic_set_pending(asher_peripheral *periph, uint8_t interruptNum, bool pending) {
+	asher_dvt1_sysctl *sysctl = (asher_dvt1_sysctl *)(periph->userdata);
+	
+	sysctl->nvic.ispr[interruptNum >> 5] |= 0x00000001 << (interruptNum & 0x1f);
+	
+	for (uint8_t i = 0; i < 98; i++) {
+		
+	}
 }

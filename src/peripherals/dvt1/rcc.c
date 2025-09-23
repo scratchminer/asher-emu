@@ -13,8 +13,8 @@ void *asher_peripheral_dvt1_rcc_create(uint32_t baseAddr) {
 	return rcc;
 }
 
-uint64_t asher_peripheral_dvt1_rcc_read(uc_engine *uc, uint64_t offset, unsigned size, void *userdata) {
-	asher_dvt1_rcc *rcc = (asher_dvt1_rcc *)userdata;
+uint64_t asher_peripheral_dvt1_rcc_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph) {
+	asher_dvt1_rcc *rcc = (asher_dvt1_rcc *)(((asher_peripheral *)periph)->userdata);
 	
 	switch (offset) {
 		case 0x00:
@@ -26,8 +26,8 @@ uint64_t asher_peripheral_dvt1_rcc_read(uc_engine *uc, uint64_t offset, unsigned
 	}
 }
 
-void asher_peripheral_dvt1_rcc_write(uc_engine *uc, uint64_t offset, unsigned size, uint64_t value, void *userdata) {
-	asher_dvt1_rcc *rcc = (asher_dvt1_rcc *)userdata;
+void asher_peripheral_dvt1_rcc_write(uc_engine *uc, uint64_t offset, unsigned size, uint64_t value, void *periph) {
+	asher_dvt1_rcc *rcc = (asher_dvt1_rcc *)(((asher_peripheral *)periph)->userdata);
 	
 	if (offset == 0x74) {
 		if ((value & 0x01000000) != 0) {

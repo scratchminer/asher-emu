@@ -68,8 +68,8 @@ void *asher_peripheral_dvt1_gpio_create(uint32_t baseAddr) {
 	return gpio;
 }
 
-uint64_t asher_peripheral_dvt1_gpio_read(uc_engine *uc, uint64_t offset, unsigned size, void *userdata) {
-	asher_dvt1_gpio *gpio = (asher_dvt1_gpio *)userdata;
+uint64_t asher_peripheral_dvt1_gpio_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph) {
+	asher_dvt1_gpio *gpio = (asher_dvt1_gpio *)(((asher_peripheral *)periph)->userdata);
 	
 	switch (offset) {
 		case 0x00:
@@ -93,8 +93,8 @@ uint64_t asher_peripheral_dvt1_gpio_read(uc_engine *uc, uint64_t offset, unsigne
 	}
 }
 
-void asher_peripheral_dvt1_gpio_write(uc_engine *uc, uint64_t offset, unsigned size, uint64_t value, void *userdata) {
-	asher_dvt1_gpio *gpio = (asher_dvt1_gpio *)userdata;
+void asher_peripheral_dvt1_gpio_write(uc_engine *uc, uint64_t offset, unsigned size, uint64_t value, void *periph) {
+	asher_dvt1_gpio *gpio = (asher_dvt1_gpio *)(((asher_peripheral *)periph)->userdata);
 	
 	switch (offset) {
 		case 0x00: {

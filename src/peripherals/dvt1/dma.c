@@ -31,8 +31,8 @@ void *asher_peripheral_dvt1_dma_create(uint32_t baseAddr) {
 	return dma;
 }
 
-uint64_t asher_peripheral_dvt1_dma_read(uc_engine *uc, uint64_t offset, unsigned size, void *userdata) {
-	asher_dvt1_dma *dma = (asher_dvt1_dma *)userdata;
+uint64_t asher_peripheral_dvt1_dma_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph) {
+	asher_dvt1_dma *dma = (asher_dvt1_dma *)(((asher_peripheral *)periph)->userdata);
 	
 	if (offset == 0x00) {
 		return dma->lisr;
@@ -64,8 +64,8 @@ uint64_t asher_peripheral_dvt1_dma_read(uc_engine *uc, uint64_t offset, unsigned
 	return 0x00000000;
 }
 
-void asher_peripheral_dvt1_dma_write(uc_engine *uc, uint64_t offset, unsigned size, uint64_t value, void *userdata) {
-	asher_dvt1_dma *dma = (asher_dvt1_dma *)userdata;
+void asher_peripheral_dvt1_dma_write(uc_engine *uc, uint64_t offset, unsigned size, uint64_t value, void *periph) {
+	asher_dvt1_dma *dma = (asher_dvt1_dma *)(((asher_peripheral *)periph)->userdata);
 	
 	if (offset == 0x08) {
 		dma->lisr &= 0xffffffff ^ (value & 0x0f7d0f7d);

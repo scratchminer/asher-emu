@@ -15,7 +15,7 @@ struct asher_device {
 	asher_device_type type;
 	uc_engine *uc;
 	
-	void *peripherals[255];
+	asher_peripheral peripherals[255];
 	uint8_t numPeripherals;
 	
 	uint8_t bootData[0x18000];
@@ -148,24 +148,27 @@ uc_engine *asher_device_get_engine(asher_device *device) {
 	return device->uc;
 }
 
-bool asher_device_push_peripheral(asher_device *device, void *userdata) {
+asher_peripheral *asher_device_push_peripheral(asher_device *device, const char *name, uint32_t addr, uint32_t size, void *userdata, void (*destroy)(void *userdata)) {
 	if (device->numPeripherals == 255) {
 		printf("asher_device_push_peripheral: peripheral stack full\n");
-		return false;
-	}
-	
-	device->peripherals[device->numPeripherals++] = userdata;
-	
-	return true;
-}
-
-void *asher_device_pop_peripheral(asher_device *device) {
-	if (device->numPeripherals == 0) {
-		printf("asher_device_pop_peripheral: peripheral stack empty\n");
 		return NULL;
 	}
 	
-	return device->peripherals[--device->numPeripherals];
+	device->peripherals[device->numPeripherals].name = name;
+	device->peripherals[device->numPeripherals].addr = addr;
+	device->peripherals[device->numPeripherals].size = size;
+	device->peripherals[device->numPeripherals].userdata = userdata;
+	device->peripherals[device->numPeripherals].destroy = destroy;
+	
+	return &device->peripherals[device->numPeripherals++];
+}
+
+asher_peripheral *asher_device_pop_peripheral(asher_device *device) {
+	if (device->numPeripherals == 0) {
+		return NULL;
+	}
+	
+	return &device->peripherals[--device->numPeripherals];
 }
 
 bool asher_device_load_boot(asher_device *device, const char *bootPath) {
@@ -501,7 +504,7 @@ void asher_device_reset(asher_device *device) {
 		asher_peripherals_dvt1_register(device);
 		
 		uint32_t *vectorTablePtr = (uint32_t *)(device->bootData);
-	
+		
 		uc_reg_write(device->uc, UC_ARM_REG_SP, vectorTablePtr++);
 		uc_reg_write(device->uc, UC_ARM_REG_PC, vectorTablePtr);
 	}
@@ -510,7 +513,7 @@ void asher_device_reset(asher_device *device) {
 		asher_peripherals_h7d1_register(device);
 		
 		uint32_t *vectorTablePtr = (uint32_t *)(device->bootData);
-	
+		
 		uc_reg_write(device->uc, UC_ARM_REG_SP, vectorTablePtr++);
 		uc_reg_write(device->uc, UC_ARM_REG_PC, vectorTablePtr);
 	}

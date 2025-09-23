@@ -13,12 +13,13 @@ typedef enum {
 } asher_device_type;
 
 typedef struct asher_device asher_device;
+typedef struct asher_peripheral asher_peripheral;
 
 asher_device *asher_device_create(asher_device_type deviceType);
 
 uc_engine *asher_device_get_engine(asher_device *device);
-bool asher_device_push_peripheral(asher_device *device, void *userdata);
-void *asher_device_pop_peripheral(asher_device *device);
+asher_peripheral *asher_device_push_peripheral(asher_device *device, const char *name, uint32_t addr, uint32_t size, void *userdata, void (*destroy)(void *userdata));
+asher_peripheral *asher_device_pop_peripheral(asher_device *device);
 
 bool asher_device_load_boot(asher_device *device, const char *bootPath);
 bool asher_device_load_pdfw(asher_device *device, const char *pdfwPath);
