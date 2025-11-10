@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "../peripheral.h"
 
 typedef struct {
@@ -63,6 +65,8 @@ void *asher_peripheral_dvt1_gpio_create(uint32_t baseAddr) {
 		case 0x40022800:
 			gpio->id = 'K';
 			break;
+		default:
+			break;
 	}
 	
 	return gpio;
@@ -100,8 +104,8 @@ void asher_peripheral_dvt1_gpio_write(uc_engine *uc, uint64_t offset, unsigned s
 	switch (offset) {
 		case 0x00: {
 			for (uint8_t i = 0; i < 16; i++) {
-				uint64_t newValue = (value >> (i * 2)) & 0x00000003;
-				uint64_t oldValue = (gpio->moder >> (i * 2)) & 0x00000003;
+				uint8_t newValue = (value >> (i * 2)) & 0x00000003;
+				uint8_t oldValue = (gpio->moder >> (i * 2)) & 0x00000003;
 				
 				if (newValue != oldValue) {
 					char *mode = "";
@@ -128,8 +132,8 @@ void asher_peripheral_dvt1_gpio_write(uc_engine *uc, uint64_t offset, unsigned s
 		}
 		case 0x04:{
 			for (uint8_t i = 0; i < 16; i++) {
-				uint64_t newValue = (value >> i) & 0x00000001;
-				uint64_t oldValue = (gpio->otyper >> i) & 0x00000001;
+				uint8_t newValue = (value >> i) & 0x00000001;
+				uint8_t oldValue = (gpio->otyper >> i) & 0x00000001;
 				
 				if (newValue != oldValue) {
 					char *mode = "";
@@ -150,11 +154,11 @@ void asher_peripheral_dvt1_gpio_write(uc_engine *uc, uint64_t offset, unsigned s
 		}
 		case 0x08: {
 			for (uint8_t i = 0; i < 16; i++) {
-				uint64_t newValue = (value >> (i * 2)) & 0x00000003;
-				uint64_t oldValue = (gpio->ospeedr >> (i * 2)) & 0x00000003;
+				uint8_t newValue = (value >> (i * 2)) & 0x00000003;
+				uint8_t oldValue = (gpio->ospeedr >> (i * 2)) & 0x00000003;
 				
 				if (newValue != oldValue) {
-					printf("[debug] P%c%d output speed set to %llu\n", gpio->id, i, newValue);
+					printf("[debug] P%c%d output speed set to %hhu\n", gpio->id, i, newValue);
 				}
 			}
 			
@@ -181,11 +185,11 @@ void asher_peripheral_dvt1_gpio_write(uc_engine *uc, uint64_t offset, unsigned s
 		}
 		case 0x20: {
 			for (uint8_t i = 0; i < 8; i++) {
-				uint64_t newValue = (value >> (i * 4)) & 0x0000000f;
-				uint64_t oldValue = (gpio->afrl >> (i * 4)) & 0x0000000f;
+				uint8_t newValue = (value >> (i * 4)) & 0x0000000f;
+				uint8_t oldValue = (gpio->afrl >> (i * 4)) & 0x0000000f;
 				
 				if (newValue != oldValue) {
-					printf("[debug] P%c%d alternate function set to %llu\n", gpio->id, i, newValue);
+					printf("[debug] P%c%d alternate function set to %hhu\n", gpio->id, i, newValue);
 				}
 			}
 			
@@ -194,11 +198,11 @@ void asher_peripheral_dvt1_gpio_write(uc_engine *uc, uint64_t offset, unsigned s
 		}
 		case 0x24: {
 			for (uint8_t i = 0; i < 8; i++) {
-				uint64_t newValue = (value >> (i * 4)) & 0x0000000f;
-				uint64_t oldValue = (gpio->afrh >> (i * 4)) & 0x0000000f;
+				uint8_t newValue = (value >> (i * 4)) & 0x0000000f;
+				uint8_t oldValue = (gpio->afrh >> (i * 4)) & 0x0000000f;
 				
 				if (newValue != oldValue) {
-					printf("[debug] P%c%d alternate function set to %llu\n", gpio->id, i + 8, newValue);
+					printf("[debug] P%c%d alternate function set to %hhu\n", gpio->id, i + 8, newValue);
 				}
 			}
 			

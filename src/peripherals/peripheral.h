@@ -14,10 +14,15 @@
 	void asher_peripheral_##name##_write(uc_engine *uc, uint64_t offset, unsigned size, uint64_t value, void *periph); \
 	void asher_peripheral_##name##_destroy(void *userdata)
 
+ASHER_DEFINE_PERIPHERAL(dummy);
+
 ASHER_DEFINE_PERIPHERAL(dvt1_dma);
 ASHER_DEFINE_PERIPHERAL(dvt1_gpio);
+ASHER_DEFINE_PERIPHERAL(dvt1_pwr);
 ASHER_DEFINE_PERIPHERAL(dvt1_rcc);
+ASHER_DEFINE_PERIPHERAL(dvt1_syscfg);
 ASHER_DEFINE_PERIPHERAL(dvt1_sysctl);
+ASHER_DEFINE_PERIPHERAL(dvt1_tim);
 // todo
 
 #undef ASHER_DEFINE_PERIPHERAL

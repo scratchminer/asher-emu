@@ -79,7 +79,7 @@ void asher_peripheral_dvt1_dma_write(uc_engine *uc, uint64_t offset, unsigned si
 		switch ((offset - 0x10) % 0x18) {
 			case 0x00: {
 				// todo: dma->streams[n].cr = value
-				// start a DMA transfer as well
+				// todo: start a DMA transfer
 				return;
 			}
 			case 0x04: {

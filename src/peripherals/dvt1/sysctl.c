@@ -576,7 +576,7 @@ static void asher_peripheral_dvt1_sysctl_nvic_service(uc_engine *uc, asher_dvt1_
 	temp = (temp & 0xffff0200) | exceptionNum;
 	uc_reg_write(uc, UC_ARM_REG_XPSR, &temp);
 	
-	// Tecnhically, this should set the interrupts to "active" in their associated registers but I don't think it's needed for the emulator
+	// Tecnhically, this should set the interrupts to "active" in their associated registers but it hopefully isn't needed for the emulator
 	/*
 	if (exceptionNum >= 16) {
 		sysctl->nvic.iabr[(exceptionNum - 16) >> 5] |= 0x00000001 << (exceptionNum & 0x1f);
