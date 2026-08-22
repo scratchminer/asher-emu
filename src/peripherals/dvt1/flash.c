@@ -32,7 +32,7 @@ uint64_t asher_peripheral_dvt1_flash_read(uc_engine *uc, uint64_t offset, unsign
 	
 	switch (offset) {
 		case 0x0c:
-			return 0x00000001;
+			return 0x00000200;
 		case 0x10:
 			return flash->cr;
 		case 0x14:
@@ -61,6 +61,8 @@ void asher_peripheral_dvt1_flash_write(uc_engine *uc, uint64_t offset, unsigned 
 			else {
 				printf("[debug] FLASH ART Accelerator disabled\n");
 			}
+			
+			printf("[debug] FLASH latency set to %llu-wait-state\n", value & 0x0000000f);
 			
 			return;
 		}

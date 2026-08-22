@@ -41,7 +41,6 @@ asher_device *asher_device_create(asher_device_type deviceType) {
 	
 	if (deviceType == ASHER_DEVICE_SOFTWARE) {
 		// todo
-		
 	}
 	else if (deviceType == ASHER_DEVICE_DVT1) {
 		uc_err err = uc_open(UC_ARCH_ARM, UC_MODE_THUMB, &device->uc);
@@ -551,7 +550,7 @@ bool asher_device_run(asher_device *device) {
 	uint32_t pc;
 	uc_reg_read(device->uc, UC_ARM_REG_PC, &pc);
 	
-	uc_err err = uc_emu_start(device->uc, pc + 1, 0x100000000UL, 10000000UL, 0);
+	uc_err err = uc_emu_start(device->uc, pc + 1, 0x100000000UL, 0, 0);
 	
 	if (err) {
 		printf("asher_device_run: uc_emu_start failed: %s\n", uc_strerror(err));

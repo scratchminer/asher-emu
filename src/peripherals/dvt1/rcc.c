@@ -58,7 +58,7 @@ void asher_peripheral_dvt1_rcc_reset(void *userdata) {
 	rcc->apb1lpenr = 0xffffcbff;
 	rcc->apb2lpenr = 0x04f77f33;
 	
-	rcc->bdcr = 0x00000000;
+	rcc->bdcr = 0x80000002;
 	rcc->csr = 0x0e000002;
 	rcc->dckcfgr1 = 0x00000000;
 }
@@ -163,10 +163,6 @@ void asher_peripheral_dvt1_rcc_write(uc_engine *uc, uint64_t offset, unsigned si
 		}
 		default:
 			return;
-	}
-	
-	if (offset == 0x74) {
-		
 	}
 }
 

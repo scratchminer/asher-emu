@@ -10,7 +10,12 @@ void *asher_peripheral_dummy_create(uint32_t baseAddr) {
 	asher_dummy *dummy = malloc(sizeof(asher_dummy));
 	
 	dummy->baseAddr = baseAddr;
+	asher_peripheral_dummy_reset(dummy);
 	return dummy;
+}
+
+void asher_peripheral_dummy_reset(void *userdata) {
+	return;
 }
 
 uint64_t asher_peripheral_dummy_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph) {

@@ -27,6 +27,7 @@ bool asher_peripherals_dvt1_register(asher_device *device) {
 	uc_engine *uc = asher_device_get_engine(device);
 	uc_err err;
 	
+	ASHER_PERIPHERAL_REGISTER("DBGMCU", dvt1_dbgmcu, 0xe0042000, 0x400);
 	ASHER_PERIPHERAL_REGISTER("SCB", dvt1_sysctl, 0xe000e000, 0x1000);
 	
 	ASHER_PERIPHERAL_REGISTER("DMA1", dvt1_dma, 0x40026000, 0x400);
@@ -61,6 +62,9 @@ bool asher_peripherals_dvt1_register(asher_device *device) {
 	ASHER_PERIPHERAL_REGISTER("TIM1", dvt1_tim, 0x40010000, 0x400);
 	
 	ASHER_PERIPHERAL_REGISTER("PWR", dvt1_pwr, 0x40007000, 0x400);
+	
+	// todo
+	ASHER_PERIPHERAL_REGISTER("IWDG", dummy, 0x40003000, 0x400);
 	
 	ASHER_PERIPHERAL_REGISTER("TIM14", dvt1_tim, 0x40002000, 0x400);
 	ASHER_PERIPHERAL_REGISTER("TIM13", dvt1_tim, 0x40001c00, 0x400);

@@ -64,6 +64,7 @@ void asher_peripheral_dvt1_pwr_write(uc_engine *uc, uint64_t offset, unsigned si
 		}
 		case 0x08:
 			pwr->cr2 = value & 0x00003f3f;
+			return;
 		case 0x0c:
 			pwr->csr2 &= 0xffffc0ff;
 			pwr->csr2 |= value & 0x00003f00;

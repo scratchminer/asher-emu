@@ -92,8 +92,18 @@ void asher_peripheral_dvt1_dma_write(uc_engine *uc, uint64_t offset, unsigned si
 		
 		switch ((offset - 0x10) % 0x18) {
 			case 0x00: {
-				// todo: dma->streams[n].cr = value
-				// todo: start a DMA transfer
+				if ((dma->streams[n].cr & 0x00000001) == 0) {
+					if ((value & 0x00000001) == 1) {
+						// todo: start a DMA transfer
+						printf("[debug] DMA%d_S%d transfer started", dma->id, n);
+						
+					}
+					dma->streams[n].cr = value & 0x0fefffff;
+				}
+				else {
+					dma->streams[n].cr &= 0xffffffe0;
+					dma->streams[n].cr |= value & 0x0000001f;
+				}
 				return;
 			}
 			case 0x04: {
@@ -109,7 +119,7 @@ void asher_peripheral_dvt1_dma_write(uc_engine *uc, uint64_t offset, unsigned si
 				return;
 			}
 			case 0x0c: {
-				if ((dma->streams[n].cr & 0x00000001) == 0 || (dma->streams[n].cr & 0x00080000) == 1) {
+				if ((dma->streams[n].cr & 0x00000001) == 0 || (dma->streams[n].cr & 0x00080000) == 0x00080000) {
 					dma->streams[n].m0ar = value;
 				}
 				return;
