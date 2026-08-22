@@ -12,12 +12,17 @@ typedef struct {
 void *asher_peripheral_dvt1_pwr_create(uint32_t baseAddr) {
 	asher_dvt1_pwr *pwr = malloc(sizeof(asher_dvt1_pwr));
 	
+	asher_peripheral_dvt1_pwr_reset(pwr);
+	return pwr;
+}
+
+void asher_peripheral_dvt1_pwr_reset(void *userdata) {
+	asher_dvt1_pwr *pwr = (asher_dvt1_pwr *)userdata;
+	
 	pwr->cr1 = 0x0000c000;
 	pwr->csr1 = 0x00000008;
 	pwr->cr2 = 0x00000000;
 	pwr->csr2 = 0x00000000;
-	
-	return pwr;
 }
 
 uint64_t asher_peripheral_dvt1_pwr_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph) {

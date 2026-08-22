@@ -10,6 +10,7 @@
 
 #define ASHER_DEFINE_PERIPHERAL(name) \
 	void *asher_peripheral_##name##_create(uint32_t baseAddr); \
+	void asher_peripheral_##name##_reset(void *userdata); \
 	uint64_t asher_peripheral_##name##_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph); \
 	void asher_peripheral_##name##_write(uc_engine *uc, uint64_t offset, unsigned size, uint64_t value, void *periph); \
 	void asher_peripheral_##name##_destroy(void *userdata)
@@ -17,6 +18,7 @@
 ASHER_DEFINE_PERIPHERAL(dummy);
 
 ASHER_DEFINE_PERIPHERAL(dvt1_dma);
+ASHER_DEFINE_PERIPHERAL(dvt1_flash);
 ASHER_DEFINE_PERIPHERAL(dvt1_gpio);
 ASHER_DEFINE_PERIPHERAL(dvt1_pwr);
 ASHER_DEFINE_PERIPHERAL(dvt1_rcc);

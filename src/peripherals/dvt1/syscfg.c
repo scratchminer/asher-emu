@@ -12,14 +12,19 @@ typedef struct {
 void *asher_peripheral_dvt1_syscfg_create(uint32_t baseAddr) {
 	asher_dvt1_syscfg *syscfg = malloc(sizeof(asher_dvt1_syscfg));
 	
+	asher_peripheral_dvt1_syscfg_reset(syscfg);
+	return syscfg;
+}
+
+void asher_peripheral_dvt1_syscfg_reset(void *userdata) {
+	asher_dvt1_syscfg *syscfg = (asher_dvt1_syscfg *)userdata;
+	
 	syscfg->memrmp = 0x00000000;
 	syscfg->pmc = 0x00000000;
 	for (uint8_t i = 0; i < 4; i++) {
 		syscfg->exticr[i] = 0x0000;
 	}
 	syscfg->cmpcr = 0x00000100;
-	
-	return syscfg;
 }
 
 uint64_t asher_peripheral_dvt1_syscfg_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph) {
@@ -58,7 +63,7 @@ void asher_peripheral_dvt1_syscfg_write(uc_engine *uc, uint64_t offset, unsigned
 		case 0x0c:
 		case 0x10:
 		case 0x14:
-			syscfg->exticr[(offset - 0x08) >> 3] = value & 0xffff;
+			syscfg->exticr[(offset - 0x08) >> 2] = value & 0xffff;
 			return;
 		case 0x18:
 			syscfg->cmpcr &= 0xfffffffe;

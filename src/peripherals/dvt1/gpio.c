@@ -17,26 +17,12 @@ typedef struct {
 void *asher_peripheral_dvt1_gpio_create(uint32_t baseAddr) {
 	asher_dvt1_gpio *gpio = malloc(sizeof(asher_dvt1_gpio));
 	
-	gpio->moder = 0x00000000;
-	gpio->otyper = 0x00000000;
-	gpio->ospeedr = 0x00000000;
-	gpio->pupdr = 0x00000000;
-	gpio->odr = 0x00000000;
-	gpio->afrl = 0x00000000;
-	gpio->afrh = 0x00000000;
-	
 	switch (baseAddr) {
 		case 0x40020000:
 			gpio->id = 'A';
-			gpio->moder = 0xa8000000;
-			gpio->ospeedr = 0x0c000000;
-			gpio->pupdr = 0x64000000;
 			break;
 		case 0x40020400:
 			gpio->id = 'B';
-			gpio->moder = 0x00000280;
-			gpio->ospeedr = 0x000000c0;
-			gpio->pupdr = 0x00000100;
 			break;
 		case 0x40020800:
 			gpio->id = 'C';
@@ -69,7 +55,35 @@ void *asher_peripheral_dvt1_gpio_create(uint32_t baseAddr) {
 			break;
 	}
 	
+	asher_peripheral_dvt1_gpio_reset(gpio);
 	return gpio;
+}
+
+void asher_peripheral_dvt1_gpio_reset(void *userdata) {
+	asher_dvt1_gpio *gpio = (asher_dvt1_gpio *)userdata;
+	
+	gpio->otyper = 0x00000000;
+	gpio->odr = 0x00000000;
+	gpio->afrl = 0x00000000;
+	gpio->afrh = 0x00000000;
+	
+	switch (gpio->id) {
+		case 'A':
+			gpio->moder = 0xa8000000;
+			gpio->ospeedr = 0x0c000000;
+			gpio->pupdr = 0x64000000;
+			break;
+		case 'B':
+			gpio->moder = 0x00000280;
+			gpio->ospeedr = 0x000000c0;
+			gpio->pupdr = 0x00000100;
+			break;
+		default:
+			gpio->moder = 0x00000000;
+			gpio->ospeedr = 0x00000000;
+			gpio->pupdr = 0x00000000;
+			break;
+	}
 }
 
 uint64_t asher_peripheral_dvt1_gpio_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph) {
@@ -174,9 +188,11 @@ void asher_peripheral_dvt1_gpio_write(uc_engine *uc, uint64_t offset, unsigned s
 		case 0x18: {
 			for (uint8_t i = 0; i < 16; i++) {
 				if (((value >> i) & 0x00000001) != 0) {
+					printf("[debug] P%c%d pulled high\n", gpio->id, i);
 					gpio->odr |= (1 << i);
 				}
 				else if (((value >> (16 + i)) & 0x00000001) != 0) {
+					printf("[debug] P%c%d pulled low\n", gpio->id, i);
 					gpio->odr &= ~(1 << i);
 				}
 			}

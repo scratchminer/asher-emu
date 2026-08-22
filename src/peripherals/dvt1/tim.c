@@ -34,6 +34,57 @@ typedef struct {
 void *asher_peripheral_dvt1_tim_create(uint32_t baseAddr) {
 	asher_dvt1_tim *tim = malloc(sizeof(asher_dvt1_tim));
 	
+	switch (baseAddr) {
+		case 0x40000000:
+			tim->id = 2;
+			break;
+		case 0x40000400:
+			tim->id = 3;
+			break;
+		case 0x40000800:
+			tim->id = 4;
+			break;
+		case 0x40000c00:
+			tim->id = 5;
+			break;
+		case 0x40001000:
+			tim->id = 6;
+			break;
+		case 0x40001400:
+			tim->id = 7;
+			break;
+		case 0x40001800:
+			tim->id = 12;
+			break;
+		case 0x40001c00:
+			tim->id = 13;
+			break;
+		case 0x40002000:
+			tim->id = 14;
+			break;
+		case 0x40010000:
+			tim->id = 1;
+			break;
+		case 0x40010400:
+			tim->id = 8;
+			break;
+		case 0x40014400:
+			tim->id = 10;
+			break;
+		case 0x40014800:
+			tim->id = 11;
+			break;
+		default:
+			break;
+	}
+	
+	asher_peripheral_dvt1_tim_reset(tim);
+	return tim;
+}
+
+void asher_peripheral_dvt1_tim_reset(void *userdata) {
+	asher_dvt1_tim *tim = (asher_dvt1_tim *)userdata;
+	
 	tim->cr1 = 0x0000;
 	tim->cr2 = 0x0000;
 	tim->smcr = 0x00000000;
@@ -58,64 +109,28 @@ void *asher_peripheral_dvt1_tim_create(uint32_t baseAddr) {
 	tim->ccr5 = 0x00000000;
 	tim->ccr6 = 0x00000000;
 	
-	switch (baseAddr) {
-		case 0x40000000:
+	switch (tim->id) {
+		case 2:
+		case 5:
 			tim->arr = 0xffffffff;
-			tim->id = 2;
 			break;
-		case 0x40000400:
+		case 1:
+		case 3:
+		case 4:
+		case 6:
+		case 7:
+		case 8:
+		case 9:
+		case 10:
+		case 11:
+		case 12:
+		case 13:
+		case 14:
 			tim->arr = 0x0000ffff;
-			tim->id = 3;
-			break;
-		case 0x40000800:
-			tim->arr = 0x0000ffff;
-			tim->id = 4;
-			break;
-		case 0x40000c00:
-			tim->arr = 0xffffffff;
-			tim->id = 5;
-			break;
-		case 0x40001000:
-			tim->arr = 0x0000ffff;
-			tim->id = 6;
-			break;
-		case 0x40001400:
-			tim->arr = 0x0000ffff;
-			tim->id = 7;
-			break;
-		case 0x40001800:
-			tim->arr = 0x0000ffff;
-			tim->id = 12;
-			break;
-		case 0x40001c00:
-			tim->arr = 0x0000ffff;
-			tim->id = 13;
-			break;
-		case 0x40002000:
-			tim->arr = 0x0000ffff;
-			tim->id = 14;
-			break;
-		case 0x40010000:
-			tim->arr = 0x0000ffff;
-			tim->id = 1;
-			break;
-		case 0x40010400:
-			tim->arr = 0x0000ffff;
-			tim->id = 8;
-			break;
-		case 0x40014400:
-			tim->arr = 0x0000ffff;
-			tim->id = 10;
-			break;
-		case 0x40014800:
-			tim->arr = 0x0000ffff;
-			tim->id = 11;
 			break;
 		default:
 			break;
 	}
-	
-	return tim;
 }
 
 uint64_t asher_peripheral_dvt1_tim_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph) {

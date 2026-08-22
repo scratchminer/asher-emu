@@ -58,6 +58,7 @@ add_executable(asher
 	src/peripherals.c
 	src/peripherals/dummy.c
 	src/peripherals/dvt1/dma.c
+	src/peripherals/dvt1/flash.c
 	src/peripherals/dvt1/gpio.c
 	src/peripherals/dvt1/pwr.c
 	src/peripherals/dvt1/rcc.c

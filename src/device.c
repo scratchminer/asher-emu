@@ -148,7 +148,7 @@ uc_engine *asher_device_get_engine(asher_device *device) {
 	return device->uc;
 }
 
-asher_peripheral *asher_device_push_peripheral(asher_device *device, const char *name, uint32_t addr, uint32_t size, void *userdata, void (*destroy)(void *userdata)) {
+asher_peripheral *asher_device_push_peripheral(asher_device *device, const char *name, uint32_t addr, uint32_t size, void *userdata, void (*reset)(void *userdata), void (*destroy)(void *userdata)) {
 	if (device->numPeripherals == 255) {
 		printf("asher_device_push_peripheral: peripheral stack full\n");
 		return NULL;
@@ -158,6 +158,8 @@ asher_peripheral *asher_device_push_peripheral(asher_device *device, const char 
 	device->peripherals[device->numPeripherals].addr = addr;
 	device->peripherals[device->numPeripherals].size = size;
 	device->peripherals[device->numPeripherals].userdata = userdata;
+	device->peripherals[device->numPeripherals].device = device;
+	device->peripherals[device->numPeripherals].reset = reset;
 	device->peripherals[device->numPeripherals].destroy = destroy;
 	
 	return &device->peripherals[device->numPeripherals++];
@@ -169,6 +171,18 @@ asher_peripheral *asher_device_pop_peripheral(asher_device *device) {
 	}
 	
 	return &device->peripherals[--device->numPeripherals];
+}
+
+asher_peripheral *asher_device_get_peripheral(asher_device *device, const char *name) {
+	for (uint8_t i = 0; i < device->numPeripherals; i++) {
+		asher_peripheral *periph = &device->peripherals[i];
+		
+		if (strcmp(periph->name, name) == 0) {
+			return periph;
+		}
+	}
+	
+	return NULL;
 }
 
 bool asher_device_load_boot(asher_device *device, const char *bootPath) {

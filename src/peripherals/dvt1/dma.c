@@ -1,6 +1,8 @@
 #include "../peripheral.h"
 
 typedef struct {
+	uint8_t id;
+	
 	uint32_t lisr;
 	uint32_t hisr;
 	struct {
@@ -16,6 +18,20 @@ typedef struct {
 void *asher_peripheral_dvt1_dma_create(uint32_t baseAddr) {
 	asher_dvt1_dma *dma = malloc(sizeof(asher_dvt1_dma));
 	
+	if (baseAddr == 0x40026000) {
+		dma->id = 1;
+	}
+	else if (baseAddr == 0x40026400) {
+		dma->id = 2;
+	}
+	
+	asher_peripheral_dvt1_dma_reset(dma);
+	return dma;
+}
+
+void asher_peripheral_dvt1_dma_reset(void *userdata) {
+	asher_dvt1_dma *dma = (asher_dvt1_dma *)userdata;
+	
 	dma->lisr = 0x00000000;
 	dma->hisr = 0x00000000;
 	
@@ -27,8 +43,6 @@ void *asher_peripheral_dvt1_dma_create(uint32_t baseAddr) {
 		dma->streams[i].m1ar = 0x00000000;
 		dma->streams[i].fcr = 0x00000021;
 	}
-	
-	return dma;
 }
 
 uint64_t asher_peripheral_dvt1_dma_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph) {
@@ -113,7 +127,6 @@ void asher_peripheral_dvt1_dma_write(uc_engine *uc, uint64_t offset, unsigned si
 				else {
 					dma->streams[n].fcr = (dma->streams[n].fcr & 0x0000003f) | (value & 0x00000080);
 				}
-				
 				return;
 			}
 			default:

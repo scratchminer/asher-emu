@@ -11,6 +11,8 @@ struct asher_peripheral {
 	uint32_t addr;
 	uint32_t size;
 	void *userdata;
+	asher_device *device;
+	void (*reset)(void *userdata);
 	void (*destroy)(void *userdata);
 };
 

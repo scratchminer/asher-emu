@@ -9,7 +9,7 @@
 
 #define ASHER_PERIPHERAL_REGISTER(name, id, addr, sz) do { \
 	void *userdata = asher_peripheral_##id##_create(addr); \
-	asher_peripheral *periph = asher_device_push_peripheral(device, name, addr, sz, userdata, &asher_peripheral_##id##_destroy); \
+	asher_peripheral *periph = asher_device_push_peripheral(device, name, addr, sz, userdata, &asher_peripheral_##id##_reset, &asher_peripheral_##id##_destroy); \
 	if (periph == NULL) { \
 		asher_peripheral_##id##_destroy(userdata); \
 		return false; \
@@ -31,6 +31,8 @@ bool asher_peripherals_dvt1_register(asher_device *device) {
 	
 	ASHER_PERIPHERAL_REGISTER("DMA1", dvt1_dma, 0x40026000, 0x400);
 	ASHER_PERIPHERAL_REGISTER("DMA2", dvt1_dma, 0x40026400, 0x400);
+	
+	ASHER_PERIPHERAL_REGISTER("FLASH", dvt1_flash, 0x40023c00, 0x400);
 	
 	ASHER_PERIPHERAL_REGISTER("RCC", dvt1_rcc, 0x40023800, 0x400);
 	
@@ -75,6 +77,8 @@ bool asher_peripherals_dvt1_register(asher_device *device) {
 
 bool asher_peripherals_dvt1_unregister(asher_device *device) {
 	uc_engine *uc = asher_device_get_engine(device);
+	
+	uc_mem_unmap(uc, 0x40024000, 0x400);
 	
 	for (;;) {
 		asher_peripheral *periph = asher_device_pop_peripheral(device);

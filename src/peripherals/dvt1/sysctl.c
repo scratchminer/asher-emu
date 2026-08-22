@@ -80,6 +80,13 @@ static uint64_t asher_peripheral_dvt1_sysctl_counter(void) {
 void *asher_peripheral_dvt1_sysctl_create(uint32_t baseAddr) {
 	asher_dvt1_sysctl *sysctl = malloc(sizeof(asher_dvt1_sysctl));
 	
+	asher_peripheral_dvt1_sysctl_reset(sysctl);
+	return sysctl;
+}
+
+void asher_peripheral_dvt1_sysctl_reset(void *userdata) {
+	asher_dvt1_sysctl *sysctl = (asher_dvt1_sysctl *)userdata;
+	
 	sysctl->systick.csr = 0x00000000;
 	
 	sysctl->scb.icsr = 0x00000000;
@@ -101,8 +108,6 @@ void *asher_peripheral_dvt1_sysctl_create(uint32_t baseAddr) {
 	
 	sysctl->mpu.ctrl = 0x00000000;
 	sysctl->mpu.rnr = 0x00000000;
-	
-	return sysctl;
 }
 
 uint64_t asher_peripheral_dvt1_sysctl_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph) {
@@ -576,8 +581,6 @@ static void asher_peripheral_dvt1_sysctl_nvic_service(uc_engine *uc, asher_dvt1_
 	temp = (temp & 0xffff0200) | exceptionNum;
 	uc_reg_write(uc, UC_ARM_REG_XPSR, &temp);
 	
-	// Tecnhically, this should set the interrupts to "active" in their associated registers but it hopefully isn't needed for the emulator
-	/*
 	if (exceptionNum >= 16) {
 		sysctl->nvic.iabr[(exceptionNum - 16) >> 5] |= 0x00000001 << (exceptionNum & 0x1f);
 	}
@@ -598,7 +601,7 @@ static void asher_peripheral_dvt1_sysctl_nvic_service(uc_engine *uc, asher_dvt1_
 	}
 	else if (exceptionNum == 15) {
 		sysctl->scb.shcsr |= 0x00000800;
-	}*/
+	}
 }
 
 void asher_peripheral_dvt1_sysctl_nvic_set_pending(uc_engine *uc, asher_peripheral *periph, uint8_t exceptionNum, bool pending) {
