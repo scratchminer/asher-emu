@@ -63,8 +63,7 @@ bool asher_peripherals_dvt1_register(asher_device *device) {
 	
 	ASHER_PERIPHERAL_REGISTER("PWR", dvt1_pwr, 0x40007000, 0x400);
 	
-	// todo
-	ASHER_PERIPHERAL_REGISTER("IWDG", dummy, 0x40003000, 0x400);
+	ASHER_PERIPHERAL_REGISTER("IWDG", dvt1_iwdg, 0x40003000, 0x400);
 	
 	ASHER_PERIPHERAL_REGISTER("TIM14", dvt1_tim, 0x40002000, 0x400);
 	ASHER_PERIPHERAL_REGISTER("TIM13", dvt1_tim, 0x40001c00, 0x400);

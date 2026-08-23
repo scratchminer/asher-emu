@@ -393,6 +393,7 @@ void asher_peripheral_dvt1_sysctl_write(uc_engine *uc, uint64_t offset, unsigned
 						
 						uc_reg_write(uc, UC_ARM_REG_SP, &vectors[0]);
 						uc_reg_write(uc, UC_ARM_REG_PC, &vectors[1]);
+						printf("[debug] Software reset to address 0x%08x", vectors[1]);
 						return;
 					}
 				}
@@ -484,6 +485,10 @@ void asher_peripheral_dvt1_sysctl_write(uc_engine *uc, uint64_t offset, unsigned
 
 void asher_peripheral_dvt1_sysctl_destroy(void *userdata) {
 	free(userdata);
+}
+
+void asher_peripheral_dvt1_sysctl_tick(void *periph, uint32_t cycles) {
+	// todo
 }
 
 static void asher_peripheral_dvt1_sysctl_nvic_service(uc_engine *uc, asher_dvt1_sysctl *sysctl, int32_t currentPriority, uint8_t exceptionNum) {
