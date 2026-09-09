@@ -488,7 +488,7 @@ void asher_peripheral_dvt1_sysctl_destroy(void *userdata) {
 }
 
 void asher_peripheral_dvt1_sysctl_tick(void *periph, uint32_t cycles) {
-	// todo
+	// todo: need to implement SysTick (and peripheral ticking) to get any further
 }
 
 static void asher_peripheral_dvt1_sysctl_nvic_service(uc_engine *uc, asher_dvt1_sysctl *sysctl, int32_t currentPriority, uint8_t exceptionNum) {

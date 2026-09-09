@@ -35,7 +35,7 @@ void *asher_peripheral_dvt1_rcc_create(uint32_t baseAddr) {
 void asher_peripheral_dvt1_rcc_reset(void *userdata) {
 	asher_dvt1_rcc *rcc = (asher_dvt1_rcc *)userdata;
 	
-	rcc->cr = 0x2a026083;
+	rcc->cr = 0x00006083;
 	rcc->pllcfgr = 0x24003010;
 	rcc->cfgr = 0x00000000;
 	rcc->cir = 0x0000;
@@ -121,7 +121,11 @@ void asher_peripheral_dvt1_rcc_write(uc_engine *uc, uint64_t offset, unsigned si
 	
 	switch (offset) {
 		case 0x00:
-			rcc->cr = (rcc->cr & 0x2a02ff02) | (value & 0x150d00f9);
+			rcc->cr = (rcc->cr & 0x0000ff02) | (value & 0x150d00f9);
+			
+			rcc->cr |= (value & 0x15010001) << 1;
+			rcc->cr &= ~((value & 0x15010001) << 1);
+			
 			return;
 		case 0x04: {
 			rcc->pllcfgr = value & 0x0f437fff;

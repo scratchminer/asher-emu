@@ -513,18 +513,12 @@ bool asher_device_load_pdfw(asher_device *device, const char *pdfwPath) {
 
 void asher_device_reset(asher_device *device) {
 	if (device->type == ASHER_DEVICE_DVT1) {
-		asher_peripherals_dvt1_unregister(device);
-		asher_peripherals_dvt1_register(device);
-		
 		uint32_t *vectorTablePtr = (uint32_t *)(device->bootData);
 		
 		uc_reg_write(device->uc, UC_ARM_REG_SP, vectorTablePtr++);
 		uc_reg_write(device->uc, UC_ARM_REG_PC, vectorTablePtr);
 	}
 	else if (device->type == ASHER_DEVICE_H7D1) {
-		asher_peripherals_h7d1_unregister(device);
-		asher_peripherals_h7d1_register(device);
-		
 		uint32_t *vectorTablePtr = (uint32_t *)(device->bootData);
 		
 		uc_reg_write(device->uc, UC_ARM_REG_SP, vectorTablePtr++);
@@ -550,7 +544,7 @@ bool asher_device_run(asher_device *device) {
 	uint32_t pc;
 	uc_reg_read(device->uc, UC_ARM_REG_PC, &pc);
 	
-	uc_err err = uc_emu_start(device->uc, pc + 1, 0x100000000UL, 10000000UL, 0);
+	uc_err err = uc_emu_start(device->uc, pc + 1, 0x100000000UL, 100000UL, 0);
 	
 	if (err) {
 		printf("asher_device_run: uc_emu_start failed: %s\n", uc_strerror(err));
