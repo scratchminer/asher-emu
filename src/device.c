@@ -105,7 +105,7 @@ asher_device *asher_device_create(asher_device_type deviceType) {
 		
 		uc_hook hh;
 		uc_hook_add(device->uc, &hh, UC_HOOK_MEM_UNMAPPED, &unmappedCb, NULL, 0x00000000, 0xffffffff);
-		uc_hook_add(device->uc, &hh, UC_HOOK_BLOCK, &tickCb, device, 0x00000000, 0xffffffff);
+		uc_hook_add(device->uc, &hh, UC_HOOK_CODE, &tickCb, device, 0x00000000, 0xffffffff);
 		
 		asher_peripherals_dvt1_register(device);
 	}
@@ -157,9 +157,8 @@ asher_device *asher_device_create(asher_device_type deviceType) {
 		}
 		
 		uc_hook hh;
-		uc_hook hh2;
 		uc_hook_add(device->uc, &hh, UC_HOOK_MEM_UNMAPPED, &unmappedCb, NULL, 0x00000000, 0xffffffff);
-		uc_hook_add(device->uc, &hh2, UC_HOOK_BLOCK, &tickCb, device, 0x00000000, 0xffffffff);
+		uc_hook_add(device->uc, &hh, UC_HOOK_CODE, &tickCb, device, 0x00000000, 0xffffffff);
 		
 		asher_peripherals_h7d1_register(device);
 	}
@@ -566,7 +565,7 @@ bool asher_device_step(asher_device *device) {
 	uc_reg_read(device->uc, UC_ARM_REG_PC, &pc);
 	
 	device->lastTick = asher_timer();
-	uc_err err = uc_emu_start(device->uc, pc | 1, 0x100000000UL, 10000000UL, 1);
+	uc_err err = uc_emu_start(device->uc, pc | 1, 0xffffffffUL, 10000000UL, 1);
 	
 	if (err) {
 		printf("asher_device_step: uc_emu_start failed: %s\n", uc_strerror(err));
@@ -583,7 +582,8 @@ bool asher_device_run(asher_device *device) {
 	device->lastTick = asher_timer();
 	
 	for (;;) {
-		uc_err err = uc_emu_start(device->uc, pc | 1, 0x100000000UL, 10000000UL, 0);
+		uc_reg_read(device->uc, UC_ARM_REG_PC, &pc);
+		uc_err err = uc_emu_start(device->uc, pc | 1, 0xffffffffUL, 0, 0);
 	
 		if (err) {
 			uc_reg_read(device->uc, UC_ARM_REG_PC, &pc);
@@ -591,8 +591,6 @@ bool asher_device_run(asher_device *device) {
 			if (err == UC_ERR_EXCEPTION && (pc & 0xf0000000) == 0xf0000000) {
 				if (device->type == ASHER_DEVICE_DVT1) {
 					if (asher_peripheral_dvt1_sysctl_nvic_return(device->uc, asher_device_get_peripheral(device, "SCB"), pc)) {
-						uc_mem_read(device->uc, 0x200193b8, &pc, 4);
-						printf("%08x\n", pc);
 						continue;
 					}
 				}

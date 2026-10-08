@@ -20,13 +20,14 @@ int main(int argc, char **argv) {
 		return -1;
 	}*/
 	
-	if (argc == 1) {
-		printf("No bootloader given!\n");
+	if (argc < 3) {
+		printf("usage: asher (bootloader path)\n");
 		return -1;
 	}
 	
 	asher_device *device = asher_device_create(ASHER_DEVICE_DVT1);
 	asher_device_load_boot(device, argv[1]);
+	asher_device_load_pdfw(device, argv[2]);
 	asher_device_reset(device);
 	
 	if (!asher_device_run(device)) {

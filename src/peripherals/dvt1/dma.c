@@ -146,6 +146,8 @@ void asher_peripheral_dvt1_dma_write(uc_engine *uc, uint64_t offset, unsigned si
 }
 
 void asher_peripheral_dvt1_dma_tick(uc_engine *uc, asher_peripheral *periph, uint64_t cycles) {
+	asher_dvt1_dma *dma = (asher_dvt1_dma *)(periph->userdata);
+	
 	// todo
 	return;
 }

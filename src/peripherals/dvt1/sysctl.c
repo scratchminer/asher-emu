@@ -12,6 +12,7 @@ typedef struct {
 		uint32_t icsr;
 		uint32_t vtor;
 		uint32_t aircr;
+		uint32_t ccr;
 		uint32_t shpr[4];
 		uint32_t shcsr;
 		uint32_t cfsr;
@@ -52,6 +53,7 @@ void asher_peripheral_dvt1_sysctl_reset(void *userdata) {
 	
 	sysctl->scb.icsr = 0x00000000;
 	sysctl->scb.aircr = 0xfa050000;
+	sysctl->scb.ccr = 0x00000000;
 	sysctl->scb.vtor = 0x08000000;
 	sysctl->scb.shcsr = 0x00000000;
 	sysctl->scb.cfsr = 0x00000000;
@@ -132,6 +134,8 @@ uint64_t asher_peripheral_dvt1_sysctl_read(uc_engine *uc, uint64_t offset, unsig
 				return sysctl->scb.vtor;
 			case 0x0c:
 				return sysctl->scb.aircr;
+			case 0x14:
+				return sysctl->scb.ccr;
 			case 0x18:
 				return sysctl->scb.shpr[1];
 			case 0x1c:
@@ -263,7 +267,8 @@ void asher_peripheral_dvt1_sysctl_write(uc_engine *uc, uint64_t offset, unsigned
 		// SysTick
 		switch (offset - 0x010) {
 			case 0x0:
-				sysctl->systick.csr = value & 0x00010007;
+				sysctl->systick.csr &= 0xfffffff8;
+				sysctl->systick.csr |= value & 0x00000007;
 				return;
 			case 0x4:
 				sysctl->systick.rvr = value & 0x00ffffff;
@@ -350,16 +355,17 @@ void asher_peripheral_dvt1_sysctl_write(uc_engine *uc, uint64_t offset, unsigned
 						uint32_t vectors[2];
 						uc_mem_read(uc, sysctl->scb.vtor, &vectors, 2 * sizeof(uint32_t));
 						
-						vectors[1] |= 0x00000001;
-						
 						uc_reg_write(uc, UC_ARM_REG_SP, &vectors[0]);
 						uc_reg_write(uc, UC_ARM_REG_PC, &vectors[1]);
-						printf("[debug] Software reset to address 0x%08x", vectors[1]);
+						printf("[debug] Software reset to address 0x%08x\n", vectors[1]);
 						return;
 					}
 				}
 				return;
 			}
+			case 0x14:
+				sysctl->scb.ccr = value & 0x00000200;
+				return;
 			case 0x18:
 				sysctl->scb.shpr[1] = value;
 				return;
@@ -476,7 +482,9 @@ void asher_peripheral_dvt1_sysctl_tick(uc_engine *uc, asher_peripheral *periph, 
 	}
 }
 
-static void asher_peripheral_dvt1_sysctl_nvic_service(uc_engine *uc, asher_dvt1_sysctl *sysctl, int32_t currentPriority, uint8_t exceptionNum) {
+static void asher_peripheral_dvt1_sysctl_nvic_service(uc_engine *uc, asher_peripheral *periph, int32_t currentPriority, uint8_t exceptionNum) {
+	asher_dvt1_sysctl *sysctl = (asher_dvt1_sysctl *)(periph->userdata);
+	
 	uint32_t control;
 	uc_reg_read(uc, UC_ARM_REG_CONTROL, &control);
 	
@@ -484,9 +492,11 @@ static void asher_peripheral_dvt1_sysctl_nvic_service(uc_engine *uc, asher_dvt1_
 	uc_reg_read(uc, UC_ARM_REG_IPSR, &ipsr);
 	
 	uint32_t frameSize = 0x20;
+	bool forceAlign = (sysctl->scb.ccr & 0x00000200) != 0;
 	
 	if ((control & 0x4) != 0x0) {
 		frameSize = 0x68;
+		forceAlign = true;
 	}
 	
 	uint32_t sp;
@@ -494,14 +504,14 @@ static void asher_peripheral_dvt1_sysctl_nvic_service(uc_engine *uc, asher_dvt1_
 	
 	if ((control & 0x2) != 0x0 && (ipsr & 0x1ff) == 0x000) {
 		uc_reg_read(uc, UC_ARM_REG_PSP, &sp);
-		frameAlign = (sp & 0x00000004) != 0;
-		sp = (sp - frameSize) & 0xfffffff8;
+		frameAlign = forceAlign && (sp & 0x00000004) != 0;
+		sp = (sp - frameSize) & (forceAlign ? 0xfffffffb : 0xffffffff);
 		uc_reg_write(uc, UC_ARM_REG_PSP, &sp);
 	}
 	else {
 		uc_reg_read(uc, UC_ARM_REG_MSP, &sp);
-		frameAlign = (sp & 0x00000004) != 0;
-		sp = (sp - frameSize) & 0xfffffff8;
+		frameAlign = forceAlign && (sp & 0x00000004) != 0;
+		sp = (sp - frameSize) & (forceAlign ? 0xfffffffb : 0xffffffff);
 		uc_reg_write(uc, UC_ARM_REG_MSP, &sp);
 	}
 	
@@ -516,6 +526,7 @@ static void asher_peripheral_dvt1_sysctl_nvic_service(uc_engine *uc, asher_dvt1_
 	uc_reg_read(uc, UC_ARM_REG_PC, &frame[6]);
 	uc_reg_read(uc, UC_ARM_REG_XPSR, &frame[7]);
 	
+	frame[6] |= 0x00000001;
 	if (frameAlign) {
 		frame[7] |= 0x00000200;
 	}
@@ -572,35 +583,44 @@ static void asher_peripheral_dvt1_sysctl_nvic_service(uc_engine *uc, asher_dvt1_
 	
 	if (exceptionNum >= 16) {
 		sysctl->nvic.iabr[(exceptionNum - 16) >> 5] |= 0x00000001 << ((exceptionNum - 16) & 0x1f);
+		sysctl->nvic.ispr[(exceptionNum - 16) >> 5] &= 0xffffffff ^ (0x00000001 << ((exceptionNum - 16) & 0x1f));
+	}
+	else if (exceptionNum == 2) {
+		sysctl->scb.icsr &= 0x7fffffff;
 	}
 	else if (exceptionNum == 4) {
 		sysctl->scb.shcsr |= 0x00000001;
+		sysctl->scb.shcsr &= 0xffffdfff;
 	}
 	else if (exceptionNum == 5) {
 		sysctl->scb.shcsr |= 0x00000002;
+		sysctl->scb.shcsr &= 0xffffbfff;
 	}
 	else if (exceptionNum == 6) {
 		sysctl->scb.shcsr |= 0x00000008;
+		sysctl->scb.shcsr &= 0xffffefff;
 	}
 	else if (exceptionNum == 11) {
 		sysctl->scb.shcsr |= 0x00000080;
+		sysctl->scb.icsr &= 0xffff7fff;
 	}
 	else if (exceptionNum == 14) {
 		sysctl->scb.shcsr |= 0x00000400;
+		sysctl->scb.icsr &= 0xefffffff;
 	}
 	else if (exceptionNum == 15) {
 		sysctl->scb.shcsr |= 0x00000800;
+		sysctl->scb.icsr &= 0xfbffffff;
 	}
 }
 
-// this is probably wrong!!
 bool asher_peripheral_dvt1_sysctl_nvic_return(uc_engine *uc, asher_peripheral *periph, uint32_t excReturn) {
 	asher_dvt1_sysctl *sysctl = (asher_dvt1_sysctl *)(periph->userdata);
 	
 	uint32_t ipsr;
 	uc_reg_read(uc, UC_ARM_REG_IPSR, &ipsr);
 	
-	uint8_t exceptionNum = ipsr & 0xff;
+	uint8_t exceptionNum = ipsr & 0x1ff;
 	
 	if (exceptionNum >= 16) {
 		sysctl->nvic.iabr[(exceptionNum - 16) >> 5] &= 0xffffffff ^ 0x00000001 << ((exceptionNum - 16) & 0x1f);
@@ -623,6 +643,7 @@ bool asher_peripheral_dvt1_sysctl_nvic_return(uc_engine *uc, asher_peripheral *p
 	else if (exceptionNum == 15) {
 		sysctl->scb.shcsr &= 0xfffff7ff;
 	}
+	asher_peripheral_dvt1_sysctl_nvic_set_pending(uc, periph, exceptionNum, false);
 	
 	if (exceptionNum != 2) {
 		uint32_t faultmask;
@@ -633,9 +654,11 @@ bool asher_peripheral_dvt1_sysctl_nvic_return(uc_engine *uc, asher_peripheral *p
 	}
 	
 	uint32_t frameSize = 0x20;
+	bool forceAlign = (sysctl->scb.ccr & 0x00000200) != 0;
 	
-	if ((excReturn & 0x10) != 0x0) {
+	if ((excReturn & 0x10) == 0x0) {
 		frameSize = 0x68;
+		forceAlign = true;
 	}
 	
 	uint32_t control;
@@ -649,17 +672,11 @@ bool asher_peripheral_dvt1_sysctl_nvic_return(uc_engine *uc, asher_peripheral *p
 		case 0x8:
 		case 0x9:
 			uc_reg_read(uc, UC_ARM_REG_MSP, &sp);
-			sp += frameSize;
-			uc_reg_write(uc, UC_ARM_REG_MSP, &sp);
-			
 			control &= 0x1;
 			break;
 		case 0xc:
 		case 0xd:
 			uc_reg_read(uc, UC_ARM_REG_PSP, &sp);
-			sp += frameSize;
-			uc_reg_write(uc, UC_ARM_REG_PSP, &sp);
-			
 			control = (control & 0x1) | 0x2;
 			break;
 		default:
@@ -668,7 +685,7 @@ bool asher_peripheral_dvt1_sysctl_nvic_return(uc_engine *uc, asher_peripheral *p
 	
 	uint32_t frame[frameSize >> 2];
 	
-	uc_mem_read(uc, sp - frameSize, frame, frameSize);
+	uc_mem_read(uc, sp, frame, frameSize);
 	
 	uc_reg_write(uc, UC_ARM_REG_R0, &frame[0]);
 	uc_reg_write(uc, UC_ARM_REG_R1, &frame[1]);
@@ -678,6 +695,23 @@ bool asher_peripheral_dvt1_sysctl_nvic_return(uc_engine *uc, asher_peripheral *p
 	uc_reg_write(uc, UC_ARM_REG_LR, &frame[5]);
 	uc_reg_write(uc, UC_ARM_REG_PC, &frame[6]);
 	uc_reg_write(uc, UC_ARM_REG_XPSR, &frame[7]);
+	
+	sp = (sp + frameSize) | ((forceAlign && (frame[7] & 0x00000200) != 0) ? 0x00000004 : 0x00000000);
+	
+	switch (excReturn & 0x0000000f) {
+		case 0x0:
+		case 0x1:
+		case 0x8:
+		case 0x9:
+			uc_reg_write(uc, UC_ARM_REG_MSP, &sp);
+			break;
+		case 0xc:
+		case 0xd:
+			uc_reg_write(uc, UC_ARM_REG_PSP, &sp);
+			break;
+		default:
+			return false;
+	}
 	
 	if ((excReturn & 0x10) == 0x0) {
 		if ((sysctl->scb.fpccr & 0x00000001) != 0x00000000) {
@@ -789,7 +823,7 @@ void asher_peripheral_dvt1_sysctl_nvic_set_pending(uc_engine *uc, asher_peripher
 	uint32_t ipsr;
 	uc_reg_read(uc, UC_ARM_REG_IPSR, &ipsr);
 	
-	int32_t priority;
+	int32_t priority = 256;
 	
 	if (ipsr >= 16) {
 		uint16_t currentExcNum = (ipsr - 16) & 0x1ff;
@@ -865,7 +899,7 @@ void asher_peripheral_dvt1_sysctl_nvic_set_pending(uc_engine *uc, asher_peripher
 		}
 		
 		if (newExceptionNum > 0) {
-			asher_peripheral_dvt1_sysctl_nvic_service(uc, sysctl, priority, newExceptionNum);
+			asher_peripheral_dvt1_sysctl_nvic_service(uc, periph, priority, newExceptionNum);
 			return;
 		}
 		else if (escalateIfMasked) {
@@ -883,17 +917,17 @@ void asher_peripheral_dvt1_sysctl_nvic_set_pending(uc_engine *uc, asher_peripher
 			
 			if (!enabled) {
 				sysctl->scb.hfsr |= 0x40000000;
-				asher_peripheral_dvt1_sysctl_nvic_service(uc, sysctl, priority, 3);
+				asher_peripheral_dvt1_sysctl_nvic_service(uc, periph, priority, 3);
 				return;
 			}
 		}
 	}
 	else if (faultmask && exceptionNum == 2) {
-		asher_peripheral_dvt1_sysctl_nvic_service(uc, sysctl, priority, exceptionNum);
+		asher_peripheral_dvt1_sysctl_nvic_service(uc, periph, priority, exceptionNum);
 		return;
 	}
 	else if (primask && exceptionNum < 4) {
-		asher_peripheral_dvt1_sysctl_nvic_service(uc, sysctl, priority, exceptionNum);
+		asher_peripheral_dvt1_sysctl_nvic_service(uc, periph, priority, exceptionNum);
 		return;
 	}
 }
