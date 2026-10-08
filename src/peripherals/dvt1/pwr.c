@@ -73,6 +73,10 @@ void asher_peripheral_dvt1_pwr_write(uc_engine *uc, uint64_t offset, unsigned si
 	}
 }
 
+void asher_peripheral_dvt1_pwr_tick(uc_engine *uc, asher_peripheral *periph, uint64_t cycles) {
+	return;
+}
+
 void asher_peripheral_dvt1_pwr_destroy(void *userdata) {
 	free(userdata);
 }

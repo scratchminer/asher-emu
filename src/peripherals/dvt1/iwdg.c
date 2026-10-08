@@ -91,17 +91,17 @@ void asher_peripheral_dvt1_iwdg_destroy(void *userdata) {
 	free(userdata);
 }
 
-void asher_peripheral_dvt1_iwdg_tick(void *periph, uint32_t cycles) {
-	asher_dvt1_iwdg *iwdg = (asher_dvt1_iwdg *)(((asher_peripheral *)periph)->userdata);
+void asher_peripheral_dvt1_iwdg_tick(uc_engine *uc, asher_peripheral *periph, uint64_t cycles) {
+	asher_dvt1_iwdg *iwdg = (asher_dvt1_iwdg *)(periph->userdata);
 	
 	if ((iwdg->counter & 0x80000000) == 0x80000000) {
-		uint32_t prescaler = (iwdg->counter & 0x000000ff) + cycles;
-		uint32_t divider = ((4 << iwdg->pr) - 1) & 0xff;
+		uint64_t prescaler = (iwdg->counter & 0x000000ff) + cycles;
+		uint64_t divider = ((4 << iwdg->pr) - 1) & 0xff;
 		
 		while (prescaler >= divider) {
 			if (iwdg->counter < 0x00000100) {
 				// todo: set RCC_CSR.IWDGRSTF
-				asher_device_reset(((asher_peripheral *)periph)->device);
+				asher_device_reset(periph->device);
 				return;
 			}
 			

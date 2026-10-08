@@ -230,6 +230,10 @@ void asher_peripheral_dvt1_gpio_write(uc_engine *uc, uint64_t offset, unsigned s
 	}
 }
 
+void asher_peripheral_dvt1_gpio_tick(uc_engine *uc, asher_peripheral *periph, uint64_t cycles) {
+	return;
+}
+
 void asher_peripheral_dvt1_gpio_destroy(void *userdata) {
 	free(userdata);
 }

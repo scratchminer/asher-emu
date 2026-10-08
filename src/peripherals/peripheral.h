@@ -13,6 +13,7 @@
 	void asher_peripheral_##name##_reset(void *userdata); \
 	uint64_t asher_peripheral_##name##_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph); \
 	void asher_peripheral_##name##_write(uc_engine *uc, uint64_t offset, unsigned size, uint64_t value, void *periph); \
+	void asher_peripheral_##name##_tick(uc_engine *uc, asher_peripheral *periph, uint64_t cycles); \
 	void asher_peripheral_##name##_destroy(void *userdata)
 
 ASHER_DEFINE_PERIPHERAL(dummy);

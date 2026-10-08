@@ -9,7 +9,7 @@
 
 #define ASHER_PERIPHERAL_REGISTER(name, id, addr, sz) do { \
 	void *userdata = asher_peripheral_##id##_create(addr); \
-	asher_peripheral *periph = asher_device_push_peripheral(device, name, addr, sz, userdata, &asher_peripheral_##id##_reset, &asher_peripheral_##id##_destroy); \
+	asher_peripheral *periph = asher_device_push_peripheral(device, name, addr, sz, userdata, &asher_peripheral_##id##_reset, &asher_peripheral_##id##_tick, &asher_peripheral_##id##_destroy); \
 	if (periph == NULL) { \
 		asher_peripheral_##id##_destroy(userdata); \
 		return false; \

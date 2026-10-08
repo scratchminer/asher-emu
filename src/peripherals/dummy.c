@@ -43,6 +43,10 @@ void asher_peripheral_dummy_write(uc_engine *uc, uint64_t offset, unsigned size,
 	}
 }
 
+void asher_peripheral_dummy_tick(uc_engine *uc, asher_peripheral *periph, uint64_t cycles) {
+	return;
+}
+
 void asher_peripheral_dummy_destroy(void *userdata) {
 	free(userdata);
 }

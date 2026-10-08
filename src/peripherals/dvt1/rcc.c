@@ -21,12 +21,18 @@ typedef struct {
 	uint32_t apb1lpenr;
 	uint32_t apb2lpenr;
 	uint32_t bdcr;
-	uint32_t dckcfgr1;
 	uint32_t csr;
+	uint32_t plli2scfgr;
+	uint32_t pllsaicfgr;
+	uint32_t dckcfgr1;
+	uint32_t dckcfgr2;
 } asher_dvt1_rcc;
 
 void *asher_peripheral_dvt1_rcc_create(uint32_t baseAddr) {
 	asher_dvt1_rcc *rcc = malloc(sizeof(asher_dvt1_rcc));
+	
+	rcc->bdcr = 0x00000000;
+	rcc->csr = 0x0e000000;
 	
 	asher_peripheral_dvt1_rcc_reset(rcc);
 	return rcc;
@@ -58,9 +64,13 @@ void asher_peripheral_dvt1_rcc_reset(void *userdata) {
 	rcc->apb1lpenr = 0xffffcbff;
 	rcc->apb2lpenr = 0x04f77f33;
 	
-	rcc->bdcr = 0x80000002;
-	rcc->csr = 0x0e000002;
+	rcc->csr &= 0xfe000000;
+	
+	rcc->plli2scfgr = 0x24003000;
+	rcc->pllsaicfgr = 0x24003000;
+	
 	rcc->dckcfgr1 = 0x00000000;
+	rcc->dckcfgr2 = 0x00000000;
 }
 
 uint64_t asher_peripheral_dvt1_rcc_read(uc_engine *uc, uint64_t offset, unsigned size, void *periph) {
@@ -109,7 +119,13 @@ uint64_t asher_peripheral_dvt1_rcc_read(uc_engine *uc, uint64_t offset, unsigned
 			return rcc->bdcr;
 		case 0x74:
 			return rcc->csr;
+		case 0x84:
+			return rcc->plli2scfgr;
+		case 0x88:
+			return rcc->pllsaicfgr;
 		case 0x8c:
+			return rcc->dckcfgr1;
+		case 0x90:
 			return rcc->dckcfgr1;
 		default:
 			return 0x00000000;
@@ -142,10 +158,10 @@ void asher_peripheral_dvt1_rcc_write(uc_engine *uc, uint64_t offset, unsigned si
 			
 			switch (value & 0x00000003) {
 				case 0:
-					mode = "HSI oscillator";
+					mode = "HSI";
 					break;
 				case 1:
-					mode = "HSE oscillator";
+					mode = "HSE";
 					break;
 				case 2:
 					mode = "PLL";
@@ -170,6 +186,38 @@ void asher_peripheral_dvt1_rcc_write(uc_engine *uc, uint64_t offset, unsigned si
 	}
 }
 
+void asher_peripheral_dvt1_rcc_tick(uc_engine *uc, asher_peripheral *periph, uint64_t cycles) {
+	return;
+}
+
 void asher_peripheral_dvt1_rcc_destroy(void *userdata) {
 	free(userdata);
+}
+
+double asher_peripheral_dvt1_rcc_get_freq(asher_peripheral *periph) {
+	asher_dvt1_rcc *rcc = (asher_dvt1_rcc *)(((asher_peripheral *)periph)->userdata);
+	
+	uint32_t prescaler = 1;
+	
+	switch ((rcc->cfgr >> 6) & 0x3) {
+		case 0:
+		case 1:
+			break;
+		case 2:
+			prescaler = 2 << ((rcc->cfgr >> 4) & 0x3);
+			break;
+		default:
+			prescaler = 64 << ((rcc->cfgr >> 4) & 0x3);
+			break;
+	}
+	
+	switch ((rcc->cfgr >> 2) & 0x3) {
+		case 0:
+		case 1:
+			return 16.0 / prescaler;
+		case 2:
+			return 16.0 / (rcc->pllcfgr & 0x3f) * ((rcc->pllcfgr >> 6) & 0x1ff) / (((rcc->pllcfgr >> 15) & 0x6) + 2) / prescaler;
+		default:
+			return 16.0;
+	}
 }

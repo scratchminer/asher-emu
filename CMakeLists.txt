@@ -67,6 +67,7 @@ add_executable(asher
 	src/peripherals/dvt1/syscfg.c
 	src/peripherals/dvt1/sysctl.c
 	src/peripherals/dvt1/tim.c
+	src/timer.c
 )
 
 target_include_directories(asher PRIVATE FFI_INCLUDE_DIRS INTERFACE ${ASHER_INCLUDE_DIR})

@@ -96,6 +96,10 @@ void asher_peripheral_dvt1_flash_write(uc_engine *uc, uint64_t offset, unsigned 
 	}
 }
 
+void asher_peripheral_dvt1_flash_tick(uc_engine *uc, asher_peripheral *periph, uint64_t cycles) {
+	return;
+}
+
 void asher_peripheral_dvt1_flash_destroy(void *userdata) {
 	free(userdata);
 }

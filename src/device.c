@@ -10,6 +10,7 @@
 
 #include "device.h"
 #include "peripherals.h"
+#include "timer.h"
 
 struct asher_device {
 	asher_device_type type;
@@ -20,10 +21,12 @@ struct asher_device {
 	
 	uint8_t bootData[0x18000];
 	uint8_t pdfwData[0xf0000];
+	
+	uint64_t lastTick;
 };
 
 static bool unmappedCb(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64_t value, void *userdata) {
-	if (type == UC_MEM_READ_UNMAPPED) {
+	if (type == UC_MEM_READ_UNMAPPED || type == UC_MEM_FETCH_UNMAPPED) {
 		printf("RD%02d 0x%08llx\n", size * 8, address);
 	}
 	else if (type == UC_MEM_WRITE_UNMAPPED) {
@@ -31,6 +34,24 @@ static bool unmappedCb(uc_engine *uc, uc_mem_type type, uint64_t address, int si
 	}
 	
 	return false;
+}
+
+static void tickCb(uc_engine *uc, uint64_t address, uint32_t size, void *userdata) {
+	asher_device *device = (asher_device *)userdata;
+	
+	uint64_t tick = asher_timer();
+	double freq = asher_peripheral_dvt1_rcc_get_freq(asher_device_get_peripheral(device, "RCC"));
+	
+	uint64_t cycles = (uint64_t)(freq / 1000.0 * (tick - device->lastTick));
+	
+	for (uint8_t i = 0; i < device->numPeripherals; i++) {
+		asher_peripheral *periph = &device->peripherals[i];
+		if (periph->tick != NULL) {
+			periph->tick(uc, periph, cycles);
+		}
+	}
+	
+	device->lastTick = tick;
 }
 
 asher_device *asher_device_create(asher_device_type deviceType) {
@@ -84,6 +105,7 @@ asher_device *asher_device_create(asher_device_type deviceType) {
 		
 		uc_hook hh;
 		uc_hook_add(device->uc, &hh, UC_HOOK_MEM_UNMAPPED, &unmappedCb, NULL, 0x00000000, 0xffffffff);
+		uc_hook_add(device->uc, &hh, UC_HOOK_BLOCK, &tickCb, device, 0x00000000, 0xffffffff);
 		
 		asher_peripherals_dvt1_register(device);
 	}
@@ -135,7 +157,9 @@ asher_device *asher_device_create(asher_device_type deviceType) {
 		}
 		
 		uc_hook hh;
+		uc_hook hh2;
 		uc_hook_add(device->uc, &hh, UC_HOOK_MEM_UNMAPPED, &unmappedCb, NULL, 0x00000000, 0xffffffff);
+		uc_hook_add(device->uc, &hh2, UC_HOOK_BLOCK, &tickCb, device, 0x00000000, 0xffffffff);
 		
 		asher_peripherals_h7d1_register(device);
 	}
@@ -147,7 +171,7 @@ uc_engine *asher_device_get_engine(asher_device *device) {
 	return device->uc;
 }
 
-asher_peripheral *asher_device_push_peripheral(asher_device *device, const char *name, uint32_t addr, uint32_t size, void *userdata, void (*reset)(void *userdata), void (*destroy)(void *userdata)) {
+asher_peripheral *asher_device_push_peripheral(asher_device *device, const char *name, uint32_t addr, uint32_t size, void *userdata, void (*reset)(void *userdata), void (*tick)(uc_engine *uc, asher_peripheral *periph, uint64_t cycles), void (*destroy)(void *userdata)) {
 	if (device->numPeripherals == 255) {
 		printf("asher_device_push_peripheral: peripheral stack full\n");
 		return NULL;
@@ -159,6 +183,7 @@ asher_peripheral *asher_device_push_peripheral(asher_device *device, const char 
 	device->peripherals[device->numPeripherals].userdata = userdata;
 	device->peripherals[device->numPeripherals].device = device;
 	device->peripherals[device->numPeripherals].reset = reset;
+	device->peripherals[device->numPeripherals].tick = tick;
 	device->peripherals[device->numPeripherals].destroy = destroy;
 	
 	return &device->peripherals[device->numPeripherals++];
@@ -513,12 +538,22 @@ bool asher_device_load_pdfw(asher_device *device, const char *pdfwPath) {
 
 void asher_device_reset(asher_device *device) {
 	if (device->type == ASHER_DEVICE_DVT1) {
+		for (uint8_t i = 0; i < device->numPeripherals; i++) {
+			asher_peripheral *periph = &device->peripherals[i];
+			periph->reset(periph->userdata);
+		}
+		
 		uint32_t *vectorTablePtr = (uint32_t *)(device->bootData);
 		
 		uc_reg_write(device->uc, UC_ARM_REG_SP, vectorTablePtr++);
 		uc_reg_write(device->uc, UC_ARM_REG_PC, vectorTablePtr);
 	}
 	else if (device->type == ASHER_DEVICE_H7D1) {
+		for (uint8_t i = 0; i < device->numPeripherals; i++) {
+			asher_peripheral *periph = &device->peripherals[i];
+			periph->reset(periph->userdata);
+		}
+		
 		uint32_t *vectorTablePtr = (uint32_t *)(device->bootData);
 		
 		uc_reg_write(device->uc, UC_ARM_REG_SP, vectorTablePtr++);
@@ -530,7 +565,8 @@ bool asher_device_step(asher_device *device) {
 	uint32_t pc;
 	uc_reg_read(device->uc, UC_ARM_REG_PC, &pc);
 	
-	uc_err err = uc_emu_start(device->uc, pc + 1, 0x100000000UL, 10000000UL, 1);
+	device->lastTick = asher_timer();
+	uc_err err = uc_emu_start(device->uc, pc | 1, 0x100000000UL, 10000000UL, 1);
 	
 	if (err) {
 		printf("asher_device_step: uc_emu_start failed: %s\n", uc_strerror(err));
@@ -544,11 +580,35 @@ bool asher_device_run(asher_device *device) {
 	uint32_t pc;
 	uc_reg_read(device->uc, UC_ARM_REG_PC, &pc);
 	
-	uc_err err = uc_emu_start(device->uc, pc + 1, 0x100000000UL, 100000UL, 0);
+	device->lastTick = asher_timer();
 	
-	if (err) {
-		printf("asher_device_run: uc_emu_start failed: %s\n", uc_strerror(err));
-		return false;
+	for (;;) {
+		uc_err err = uc_emu_start(device->uc, pc | 1, 0x100000000UL, 10000000UL, 0);
+	
+		if (err) {
+			uc_reg_read(device->uc, UC_ARM_REG_PC, &pc);
+			
+			if (err == UC_ERR_EXCEPTION && (pc & 0xf0000000) == 0xf0000000) {
+				if (device->type == ASHER_DEVICE_DVT1) {
+					if (asher_peripheral_dvt1_sysctl_nvic_return(device->uc, asher_device_get_peripheral(device, "SCB"), pc)) {
+						uc_mem_read(device->uc, 0x200193b8, &pc, 4);
+						printf("%08x\n", pc);
+						continue;
+					}
+				}
+				else if (device->type == ASHER_DEVICE_H7D1) {
+					/*if (asher_peripheral_h7d1_sysctl_nvic_return(device->uc, asher_device_get_peripheral(device, "SCB"), pc)) {
+						continue;
+					}*/
+				}
+			}
+			
+			printf("asher_device_run: uc_emu_start failed: %s\n", uc_strerror(err));
+			return false;
+		}
+		else {
+			break;
+		}
 	}
 	
 	return true;

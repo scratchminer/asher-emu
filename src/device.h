@@ -18,7 +18,7 @@ typedef struct asher_peripheral asher_peripheral;
 asher_device *asher_device_create(asher_device_type deviceType);
 
 uc_engine *asher_device_get_engine(asher_device *device);
-asher_peripheral *asher_device_push_peripheral(asher_device *device, const char *name, uint32_t addr, uint32_t size, void *userdata, void (*reset)(void *userdata), void (*destroy)(void *userdata));
+asher_peripheral *asher_device_push_peripheral(asher_device *device, const char *name, uint32_t addr, uint32_t size, void *userdata, void (*reset)(void *userdata), void (*tick)(uc_engine *uc, asher_peripheral *periph, uint64_t cycles), void (*destroy)(void *userdata));
 asher_peripheral *asher_device_pop_peripheral(asher_device *device);
 asher_peripheral *asher_device_get_peripheral(asher_device *device, const char *name);
 

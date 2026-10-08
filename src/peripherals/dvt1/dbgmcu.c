@@ -57,6 +57,10 @@ void asher_peripheral_dvt1_dbgmcu_write(uc_engine *uc, uint64_t offset, unsigned
 	}
 }
 
+void asher_peripheral_dvt1_dbgmcu_tick(uc_engine *uc, asher_peripheral *periph, uint64_t cycles) {
+	return;
+}
+
 void asher_peripheral_dvt1_dbgmcu_destroy(void *userdata) {
 	free(userdata);
 }
