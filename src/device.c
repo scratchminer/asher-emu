@@ -584,7 +584,7 @@ bool asher_device_run(asher_device *device) {
 	for (;;) {
 		uc_reg_read(device->uc, UC_ARM_REG_PC, &pc);
 		uc_err err = uc_emu_start(device->uc, pc | 1, 0xffffffffUL, 0, 0);
-	
+		
 		if (err) {
 			uc_reg_read(device->uc, UC_ARM_REG_PC, &pc);
 			

@@ -96,7 +96,6 @@ void asher_peripheral_dvt1_dma_write(uc_engine *uc, uint64_t offset, unsigned si
 					if ((value & 0x00000001) == 1) {
 						// todo: start a DMA transfer
 						printf("[debug] DMA%d_S%d transfer started", dma->id, n);
-						
 					}
 					dma->streams[n].cr = value & 0x0fefffff;
 				}

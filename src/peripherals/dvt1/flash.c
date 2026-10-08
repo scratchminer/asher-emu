@@ -3,6 +3,7 @@
 #include "../peripheral.h"
 
 typedef struct {
+	uint32_t acr;
 	uint32_t keyr;
 	uint32_t optkeyr;
 	uint32_t cr;
@@ -20,6 +21,7 @@ void *asher_peripheral_dvt1_flash_create(uint32_t baseAddr) {
 void asher_peripheral_dvt1_flash_reset(void *userdata) {
 	asher_dvt1_flash *flash = (asher_dvt1_flash *)userdata;
 	
+	flash->acr = 0x00000000;
 	flash->keyr = 0x00000000;
 	flash->optkeyr = 0x00000000;
 	flash->cr = 0x80000000;
@@ -31,6 +33,8 @@ uint64_t asher_peripheral_dvt1_flash_read(uc_engine *uc, uint64_t offset, unsign
 	asher_dvt1_flash *flash = (asher_dvt1_flash *)(((asher_peripheral *)periph)->userdata);
 	
 	switch (offset) {
+		case 0x00:
+			return flash->acr;
 		case 0x0c:
 			return 0x00000200;
 		case 0x10:
@@ -61,9 +65,9 @@ void asher_peripheral_dvt1_flash_write(uc_engine *uc, uint64_t offset, unsigned 
 			else {
 				printf("[debug] FLASH ART Accelerator disabled\n");
 			}
-			
 			printf("[debug] FLASH latency set to %llu-wait-state\n", value & 0x0000000f);
 			
+			flash->acr = value & 0x00000b0f;
 			return;
 		}
 		case 0x04: {

@@ -137,11 +137,8 @@ void asher_peripheral_dvt1_rcc_write(uc_engine *uc, uint64_t offset, unsigned si
 	
 	switch (offset) {
 		case 0x00:
-			rcc->cr = (rcc->cr & 0x0000ff02) | (value & 0x150d00f9);
-			
+			rcc->cr = (rcc->cr & 0x0000ff00) | (value & 0x150d00f9);
 			rcc->cr |= (value & 0x15010001) << 1;
-			rcc->cr &= ~((value & 0x15010001) << 1);
-			
 			return;
 		case 0x04: {
 			rcc->pllcfgr = value & 0x0f437fff;
@@ -152,33 +149,43 @@ void asher_peripheral_dvt1_rcc_write(uc_engine *uc, uint64_t offset, unsigned si
 			return;
 		}
 		case 0x08: {
-			rcc->cfgr = (value & 0xfffffcf3) | ((value << 2) & 0x0000000c);
-			
-			char *mode = "";
-			
-			switch (value & 0x00000003) {
-				case 0:
-					mode = "HSI";
-					break;
-				case 1:
-					mode = "HSE";
-					break;
-				case 2:
-					mode = "PLL";
-					break;
-				default:
-					break;
+			if ((rcc->cfgr & 0x00000003) != (value & 0x00000003)) {
+				char *mode = "";
+				
+				switch (value & 0x00000003) {
+					case 0:
+						mode = "HSI";
+						break;
+					case 1:
+						mode = "HSE";
+						break;
+					case 2:
+						mode = "PLL";
+						break;
+					default:
+						break;
+				}
+				printf("[debug] RCC system clock source set to %s\n", mode);
 			}
-			printf("[debug] RCC system clock source set to %s\n", mode);
+			
+			rcc->cfgr = (value & 0xfffffcf3) | ((value << 2) & 0x0000000c);
 			return;
 		}
 		case 0x0c:
 			rcc->cir = ((rcc->cir & 0xff) & ~(value >> 16)) | (value & 0xff00);
 			return;
+		case 0x70: {
+			if ((value & 0x00010000) != 0) {
+				// todo: backup domain reset
+			}
+			rcc->bdcr = (value & 0x0000831d) | ((value & 0x00000001) << 1);
+			return;
+		}
 		case 0x74: {
 			if ((value & 0x01000000) != 0) {
-				rcc->csr &= 0x01ffffff;
+				rcc->csr &= 0x01fffffc;
 			}
+			rcc->csr |= (value & 0x00000001) | ((value & 0x00000001) << 1);
 			return;
 		}
 		default:

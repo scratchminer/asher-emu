@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
 	}*/
 	
 	if (argc < 3) {
-		printf("usage: asher (bootloader path)\n");
+		printf("usage: asher (bootloader path) (firmware path)\n");
 		return -1;
 	}
 	
